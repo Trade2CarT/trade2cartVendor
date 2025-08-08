@@ -7,7 +7,6 @@ import LoginPage from './pages/LoginPage';
 import OtpPage from './pages/OtpPage';
 import Dashboard from './pages/Dashboard';
 import RegisterForm from './pages/RegisterForm';
-import Process from './pages/Process';
 
 // --- Import Pages ---
 
@@ -65,7 +64,6 @@ function App() {
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/" element={<LoginPage />} />
-
                     <Route path="/otp" element={<OtpPage />} />
 
                     {/* Protected Routes */}
