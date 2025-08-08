@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, db } from './firebase';
+import { auth, db } from '../firebase';
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin } from 'react-icons/fa';
 
 // --- Reusable Components ---
