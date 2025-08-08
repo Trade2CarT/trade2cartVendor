@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '../firebase';
-import logo from '../assets/images/logo.png'; // Make sure you have this logo file
+import logo from '../assets/images/logo.PNG'; // Make sure you have this logo file
 
 const LoginPage = () => {
     const [phone, setPhone] = useState('');
