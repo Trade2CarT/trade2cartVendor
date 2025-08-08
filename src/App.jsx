@@ -10,7 +10,7 @@ import RegisterForm from './pages/RegisterForm';
 import Process from './pages/Process';
 
 // --- Import Pages ---
-
+// This line was missing
 
 // --- Loading Spinner Component ---
 const Spinner = () => (
