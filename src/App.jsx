@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import OtpPage from './pages/OtpPage';
 import Dashboard from './pages/Dashboard';
 import RegisterForm from './pages/RegisterForm';
+import Process from './pages/Process';
 
 // --- Import Pages ---
 
