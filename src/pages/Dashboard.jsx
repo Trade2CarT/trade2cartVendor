@@ -4,15 +4,15 @@ import { toast } from 'react-toastify';
 import { ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
 import { auth, db } from '../firebase';
 import { signOut } from "firebase/auth";
-import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin } from 'react-icons/fa';
+import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
 
-// --- Helper Function (moved here to resolve build error) ---
+// --- Helper Function ---
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
     return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
 };
 
-// --- Reusable UI Components (can be moved to separate files) ---
+// --- Reusable UI Components ---
 
 const StatCard = ({ icon, title, value, color }) => (
     <div className="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
@@ -65,7 +65,6 @@ const OtpModal = ({ order, onClose, onVerify }) => {
             <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center">
                 <h3 className="text-xl font-bold text-gray-800">Order Verification</h3>
                 <p className="text-gray-600 mt-2">Enter the 4-digit OTP from the customer's app to process the order for <b className="text-blue-600">{order.userName}</b>.</p>
-
                 <div className="my-6 flex justify-center gap-3">
                     {otp.map((digit, i) => (
                         <input
@@ -80,10 +79,34 @@ const OtpModal = ({ order, onClose, onVerify }) => {
                         />
                     ))}
                 </div>
-
                 <div className="flex gap-4">
                     <button onClick={onClose} className="w-full py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition">Cancel</button>
                     <button onClick={handleVerifyClick} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition">Verify & Proceed</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ProfileModal = ({ vendor, onClose }) => {
+    if (!vendor) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-lg relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                    <FaTimes size={20} />
+                </button>
+                <div className="text-center">
+                    <img src={vendor.profilePhoto || vendor.profilePhotoURL} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-blue-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-800">{vendor.name}</h2>
+                    <p className="text-gray-500">{vendor.location}</p>
+                </div>
+                <div className="mt-6 border-t pt-6 space-y-4 text-sm">
+                    <div className="flex justify-between"><span className="font-semibold text-gray-600">Phone:</span><span className="text-gray-800">{vendor.phone}</span></div>
+                    <div className="flex justify-between"><span className="font-semibold text-gray-600">Aadhaar:</span><span className="text-gray-800">{vendor.aadhaar}</span></div>
+                    <div className="flex justify-between"><span className="font-semibold text-gray-600">PAN:</span><span className="text-gray-800">{vendor.pan}</span></div>
+                    <div className="flex justify-between"><span className="font-semibold text-gray-600">License No:</span><span className="text-gray-800">{vendor.license}</span></div>
+                    <div className="flex justify-between"><span className="font-semibold text-gray-600">Status:</span><span className={`font-bold ${vendor.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`}>{vendor.status}</span></div>
                 </div>
             </div>
         </div>
@@ -98,6 +121,7 @@ const Dashboard = () => {
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [otpModalOrder, setOtpModalOrder] = useState(null);
+    const [showProfileModal, setShowProfileModal] = useState(false);
 
     // Effect to check auth status and fetch vendor data
     useEffect(() => {
@@ -127,13 +151,11 @@ const Dashboard = () => {
     useEffect(() => {
         if (!vendor) return;
 
-        // CORRECTED QUERY: Use 'vendorId' which matches the admin panel logic
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorId'), equalTo(vendor.id));
 
         const unsubscribeAssignments = onValue(assignmentsQuery, async (snapshot) => {
             const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
 
-            // Enrich orders with user details (name, address) for display
             const enrichedOrders = await Promise.all(assigned.map(async (order) => {
                 const userQuery = query(ref(db, 'users'), orderByChild('phone'), equalTo(order.mobile));
                 const userSnapshot = await get(userQuery);
@@ -142,7 +164,7 @@ const Dashboard = () => {
                     const userData = userSnapshot.val()[userId];
                     return { ...order, userName: userData.name, userAddress: userData.address, userId };
                 }
-                return { ...order, userName: 'Unknown User', userAddress: 'N/A' }; // Fallback
+                return { ...order, userName: 'Unknown User', userAddress: 'N/A' };
             }));
             setAssignedOrders(enrichedOrders);
         });
@@ -223,11 +245,12 @@ const Dashboard = () => {
                     <p className="text-sm text-gray-500">{vendor?.location}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {/* CORRECTED PROFILE PIC LOGIC: Checks for both possible field names */}
-                    {(vendor?.profilePhoto || vendor?.profilePhotoURL) ?
-                        <img src={vendor.profilePhoto || vendor.profilePhotoURL} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
-                        : <FaUserCircle className="w-10 h-10 text-gray-400" />
-                    }
+                    <button onClick={() => setShowProfileModal(true)} className="cursor-pointer">
+                        {(vendor?.profilePhoto || vendor?.profilePhotoURL) ?
+                            <img src={vendor.profilePhoto || vendor.profilePhotoURL} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
+                            : <FaUserCircle className="w-10 h-10 text-gray-400" />
+                        }
+                    </button>
                     <button onClick={handleSignOut} className="text-gray-500 hover:text-red-500" title="Sign Out">
                         <FaSignOutAlt size={24} />
                     </button>
@@ -281,8 +304,10 @@ const Dashboard = () => {
             </main>
 
             {otpModalOrder && <OtpModal order={otpModalOrder} onClose={() => setOtpModalOrder(null)} onVerify={handleProcessOrder} />}
+            {showProfileModal && <ProfileModal vendor={vendor} onClose={() => setShowProfileModal(false)} />}
         </div>
     );
 };
 
 export default Dashboard;
+    
