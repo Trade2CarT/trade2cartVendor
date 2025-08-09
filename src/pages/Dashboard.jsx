@@ -99,6 +99,7 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [otpModalOrder, setOtpModalOrder] = useState(null);
 
+    // Effect to check auth status and fetch vendor data
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
@@ -107,44 +108,47 @@ const Dashboard = () => {
             return;
         }
 
-        // 1. Fetch the vendor's own profile data
         const vendorRef = ref(db, `vendors/${user.uid}`);
         const unsubscribeVendor = onValue(vendorRef, (snapshot) => {
             if (snapshot.exists()) {
                 const vendorData = { id: snapshot.key, ...snapshot.val() };
                 setVendor(vendorData);
-                setLoading(false); // Stop loading once we know the vendor exists
             } else {
-                setLoading(false);
                 toast.error("Vendor profile not found. Please complete your registration.");
                 navigate('/register');
             }
+            setLoading(false);
         });
 
-        // 2. Set up a listener for orders assigned to this vendor using their UID
-        const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorId'), equalTo(user.uid));
+        return () => unsubscribeVendor();
+    }, [navigate]);
+
+    // Effect to fetch assigned orders once vendor data is available
+    useEffect(() => {
+        if (!vendor) return;
+
+        // CORRECTED QUERY: Use 'vendorId' which matches the admin panel logic
+        const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorId'), equalTo(vendor.id));
+
         const unsubscribeAssignments = onValue(assignmentsQuery, async (snapshot) => {
             const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
 
-            // Enrich orders with user details (name, address)
+            // Enrich orders with user details (name, address) for display
             const enrichedOrders = await Promise.all(assigned.map(async (order) => {
                 const userQuery = query(ref(db, 'users'), orderByChild('phone'), equalTo(order.mobile));
                 const userSnapshot = await get(userQuery);
                 if (userSnapshot.exists()) {
-                    const userData = Object.values(userSnapshot.val())[0];
-                    return { ...order, userName: userData.name, userAddress: userData.address, userId: Object.keys(userSnapshot.val())[0] };
+                    const userId = Object.keys(userSnapshot.val())[0];
+                    const userData = userSnapshot.val()[userId];
+                    return { ...order, userName: userData.name, userAddress: userData.address, userId };
                 }
-                return order; // Return original order if user not found
+                return { ...order, userName: 'Unknown User', userAddress: 'N/A' }; // Fallback
             }));
             setAssignedOrders(enrichedOrders);
         });
 
-        // Cleanup function to detach listeners when the component unmounts
-        return () => {
-            unsubscribeVendor();
-            unsubscribeAssignments();
-        };
-    }, [navigate]);
+        return () => unsubscribeAssignments();
+    }, [vendor]);
 
     const handleSignOut = async () => {
         try {
@@ -171,7 +175,6 @@ const Dashboard = () => {
             if (userData.otp === enteredOtp) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                // Navigate to the process page, passing the full order and vendor objects
                 navigate(`/process`, { state: { order: otpModalOrder, vendor } });
             } else {
                 toast.error("Invalid OTP. Please ask the customer to check again.");
@@ -220,8 +223,9 @@ const Dashboard = () => {
                     <p className="text-sm text-gray-500">{vendor?.location}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {vendor?.profilePhoto ?
-                        <img src={vendor.profilePhoto} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
+                    {/* CORRECTED PROFILE PIC LOGIC: Checks for both possible field names */}
+                    {(vendor?.profilePhoto || vendor?.profilePhotoURL) ?
+                        <img src={vendor.profilePhoto || vendor.profilePhotoURL} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
                         : <FaUserCircle className="w-10 h-10 text-gray-400" />
                     }
                     <button onClick={handleSignOut} className="text-gray-500 hover:text-red-500" title="Sign Out">
