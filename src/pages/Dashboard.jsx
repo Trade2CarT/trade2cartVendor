@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, db } from '../firebase';
+import { auth, db, firebaseObjectToArray } from '../firebase';
+import { signOut } from "firebase/auth";
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin } from 'react-icons/fa';
 
-// --- Reusable Components ---
+// --- Reusable UI Components (can be moved to separate files) ---
+
 const StatCard = ({ icon, title, value, color }) => (
     <div className="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
         <div className={`p-3 rounded-full ${color}`}>
@@ -84,81 +86,89 @@ const OtpModal = ({ order, onClose, onVerify }) => {
 
 
 // --- Main Dashboard Component ---
-const Dashboard = ({ handleSignOut }) => {
+const Dashboard = () => {
     const navigate = useNavigate();
     const [vendor, setVendor] = useState(null);
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [otpModalOrder, setOtpModalOrder] = useState(null);
 
-    // Fetch vendor details and listen for assigned orders
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
-            toast.error("Not authenticated!");
+            toast.error("Authentication session expired. Please log in again.");
             navigate('/');
             return;
         }
 
-        // 1. Fetch Vendor's own details
+        // 1. Fetch the vendor's own profile data
         const vendorRef = ref(db, `vendors/${user.uid}`);
         const unsubscribeVendor = onValue(vendorRef, (snapshot) => {
             if (snapshot.exists()) {
-                const vendorData = snapshot.val();
+                const vendorData = { id: snapshot.key, ...snapshot.val() };
                 setVendor(vendorData);
-
-                // 2. Once we have vendor data, stop the main loading indicator
-                setLoading(false);
-
-                // 3. Listen for assigned orders in a separate listener
-                const assignmentsRef = ref(db, 'assignments');
-                const q = query(assignmentsRef, orderByChild('vendorPhone'), equalTo(vendorData.phone));
-
-                const unsubscribeAssignments = onValue(q, (assignmentSnapshot) => {
-                    const orders = [];
-                    assignmentSnapshot.forEach(childSnapshot => {
-                        const order = { id: childSnapshot.key, ...childSnapshot.val() };
-                        if (order.status === 'assigned') {
-                            orders.push(order);
-                        }
-                    });
-                    setAssignedOrders(orders);
-                });
-
-                // Return a cleanup function for the assignments listener
-                return () => unsubscribeAssignments();
-
+                setLoading(false); // Stop loading once we know the vendor exists
             } else {
                 setLoading(false);
-                toast.error("Vendor profile not found. Redirecting to registration.");
+                toast.error("Vendor profile not found. Please complete your registration.");
                 navigate('/register');
             }
         });
 
-        // Return the cleanup function for the vendor listener
-        return () => unsubscribeVendor();
+        // 2. Set up a listener for orders assigned to this vendor using their UID
+        const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorId'), equalTo(user.uid));
+        const unsubscribeAssignments = onValue(assignmentsQuery, async (snapshot) => {
+            const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
 
+            // Enrich orders with user details (name, address)
+            const enrichedOrders = await Promise.all(assigned.map(async (order) => {
+                const userQuery = query(ref(db, 'users'), orderByChild('phone'), equalTo(order.mobile));
+                const userSnapshot = await get(userQuery);
+                if (userSnapshot.exists()) {
+                    const userData = Object.values(userSnapshot.val())[0];
+                    return { ...order, userName: userData.name, userAddress: userData.address, userId: Object.keys(userSnapshot.val())[0] };
+                }
+                return order; // Return original order if user not found
+            }));
+            setAssignedOrders(enrichedOrders);
+        });
+
+        // Cleanup function to detach listeners when the component unmounts
+        return () => {
+            unsubscribeVendor();
+            unsubscribeAssignments();
+        };
     }, [navigate]);
+
+    const handleSignOut = async () => {
+        try {
+            await signOut(auth);
+            toast.success("You've been signed out.");
+            navigate('/');
+        } catch (error) {
+            toast.error("Failed to sign out.");
+        }
+    };
 
     const handleProcessOrder = async (enteredOtp) => {
         if (!otpModalOrder) return;
 
         try {
-            // Fetch the user's data to get the correct OTP
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
 
             if (!userSnapshot.exists()) {
-                return toast.error("Customer data not found!");
+                return toast.error("Customer data could not be found!");
             }
 
             const userData = userSnapshot.val();
             if (userData.otp === enteredOtp) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
+                // Navigate to the process page, passing the full order and vendor objects
+                navigate(`/process`, { state: { order: otpModalOrder, vendor } });
             } else {
-                toast.error("Invalid OTP. Please try again.");
+                toast.error("Invalid OTP. Please ask the customer to check again.");
             }
         } catch (error) {
             console.error("OTP Verification Error:", error);
@@ -167,7 +177,7 @@ const Dashboard = ({ handleSignOut }) => {
     };
 
     if (loading) {
-        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+        return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading Vendor Dashboard...</div>;
     }
 
     if (vendor?.status === 'pending') {
@@ -175,7 +185,7 @@ const Dashboard = ({ handleSignOut }) => {
             <div className="min-h-screen bg-yellow-50 flex flex-col items-center justify-center text-center p-4">
                 <FaTasks className="text-6xl text-yellow-500 mb-4" />
                 <h1 className="text-3xl font-bold text-yellow-800">Verification Pending</h1>
-                <p className="text-yellow-700 mt-2 max-w-md">Your profile has been submitted and is currently under review by our team. We will notify you once the verification is complete.</p>
+                <p className="text-yellow-700 mt-2 max-w-md">Your profile has been submitted and is under review. We will notify you once verification is complete.</p>
                 <button onClick={handleSignOut} className="mt-8 px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow hover:bg-red-600">
                     Sign Out
                 </button>
@@ -188,7 +198,7 @@ const Dashboard = ({ handleSignOut }) => {
             <div className="min-h-screen bg-red-50 flex flex-col items-center justify-center text-center p-4">
                 <FaTasks className="text-6xl text-red-500 mb-4" />
                 <h1 className="text-3xl font-bold text-red-800">Profile Rejected</h1>
-                <p className="text-red-700 mt-2 max-w-md">We're sorry, but your profile could not be approved at this time. Please contact support for more information.</p>
+                <p className="text-red-700 mt-2 max-w-md">We're sorry, your profile could not be approved. Please contact support for more information.</p>
                 <button onClick={handleSignOut} className="mt-8 px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow hover:bg-red-600">
                     Sign Out
                 </button>
@@ -196,36 +206,31 @@ const Dashboard = ({ handleSignOut }) => {
         );
     }
 
-
     return (
         <div className="min-h-screen bg-gray-100">
-            {/* Header */}
             <header className="bg-white shadow-sm p-4 flex justify-between items-center">
                 <div>
-                    <h1 className="text-xl font-bold text-gray-800">Welcome, {vendor?.name.split(' ')[0]}</h1>
+                    <h1 className="text-xl font-bold text-gray-800">Welcome, {vendor?.name?.split(' ')[0]}</h1>
                     <p className="text-sm text-gray-500">{vendor?.location}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {vendor?.profilePhotoURL ?
-                        <img src={vendor.profilePhotoURL} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
+                    {vendor?.profilePhoto ?
+                        <img src={vendor.profilePhoto} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
                         : <FaUserCircle className="w-10 h-10 text-gray-400" />
                     }
-                    <button onClick={handleSignOut} className="text-gray-500 hover:text-red-500">
+                    <button onClick={handleSignOut} className="text-gray-500 hover:text-red-500" title="Sign Out">
                         <FaSignOutAlt size={24} />
                     </button>
                 </div>
             </header>
 
-            {/* Main Content */}
             <main className="p-4 md:p-6">
-                {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={assignedOrders.length} color="bg-blue-500" />
                     <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value="0" color="bg-green-500" />
                     <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value="₹0" color="bg-purple-500" />
                 </div>
 
-                {/* Assigned Orders Table */}
                 <div className="bg-white p-4 rounded-xl shadow-md">
                     <h2 className="text-lg font-bold text-gray-800 mb-4">My Assigned Orders</h2>
                     <div className="overflow-x-auto">
@@ -244,8 +249,8 @@ const Dashboard = ({ handleSignOut }) => {
                                 <tbody>
                                     {assignedOrders.map(order => (
                                         <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-4 font-medium text-gray-900">{order.userName}</td>
-                                            <td className="px-4 py-4 flex items-center gap-2"><FaMapPin className="text-gray-400" />{order.userAddress}</td>
+                                            <td className="px-4 py-4 font-medium text-gray-900">{order.userName || 'N/A'}</td>
+                                            <td className="px-4 py-4 flex items-center gap-2"><FaMapPin className="text-gray-400" />{order.userAddress || 'N/A'}</td>
                                             <td className="px-4 py-4">
                                                 <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
                                                     <FaPhoneAlt size={12} /> {order.mobile}
