@@ -1,10 +1,16 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, db, firebaseObjectToArray } from '../firebase';
+import { auth, db } from '../firebase';
 import { signOut } from "firebase/auth";
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin } from 'react-icons/fa';
+
+// --- Helper Function (moved here to resolve build error) ---
+const firebaseObjectToArray = (snapshot) => {
+    const data = snapshot.val();
+    return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
+};
 
 // --- Reusable UI Components (can be moved to separate files) ---
 
