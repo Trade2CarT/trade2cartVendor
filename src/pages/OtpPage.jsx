@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { auth, db } from '../firebase';
-import logo from '../assets/images/logo.png';
+import logo from '../assets/images/logo.PNG';
 
 const OtpPage = () => {
     const [otp, setOtp] = useState(new Array(6).fill(''));
