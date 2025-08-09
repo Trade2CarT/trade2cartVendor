@@ -126,16 +126,20 @@ const Dashboard = () => {
     // Effect to check auth status and fetch vendor data
     useEffect(() => {
         const user = auth.currentUser;
-        if (!user) {
+        if (!user || !user.phoneNumber) {
             toast.error("Authentication session expired. Please log in again.");
             navigate('/');
             return;
         }
 
-        const vendorRef = ref(db, `vendors/${user.uid}`);
-        const unsubscribeVendor = onValue(vendorRef, (snapshot) => {
+        // CORRECTED LOGIC: Find vendor by phone number instead of UID
+        const phoneWithoutCountryCode = user.phoneNumber.slice(3); // Removes '+91'
+        const vendorsQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(phoneWithoutCountryCode));
+
+        const unsubscribeVendor = onValue(vendorsQuery, (snapshot) => {
             if (snapshot.exists()) {
-                const vendorData = { id: snapshot.key, ...snapshot.val() };
+                // Since the query is correct, we get the vendor object directly
+                const vendorData = firebaseObjectToArray(snapshot)[0];
                 setVendor(vendorData);
             } else {
                 toast.error("Vendor profile not found. Please complete your registration.");
@@ -310,4 +314,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-    
