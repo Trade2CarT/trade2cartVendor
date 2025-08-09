@@ -5,11 +5,12 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase'; // Make sure this path is correct
 
 // --- Import Pages ---
-import LoginPage from './LoginPage';
-import OtpPage from './OtpPage';
-import RegisterForm from './RegisterForm';
-import Dashboard from './Dashboard';
-import Process from './Process';
+import LoginPage from './pages/LoginPage';
+import OtpPage from './pages/OtpPage';
+import Dashboard from './pages/Dashboard';
+import RegisterForm from './pages/RegisterForm';
+import Process from './pages/Process';
+
 
 // --- Loading Spinner Component ---
 const Spinner = () => (
