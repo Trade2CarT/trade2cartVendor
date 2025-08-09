@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
-import { db } from './firebase';
+import { db } from '../firebase';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 
 // --- Main Process Component ---
