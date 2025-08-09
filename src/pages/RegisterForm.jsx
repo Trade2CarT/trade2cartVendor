@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref as dbRef, set } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '../firebase';
+import { auth, db, storage } from './firebase';
 import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload } from 'react-icons/fa';
 
 // A reusable file input component for better UI

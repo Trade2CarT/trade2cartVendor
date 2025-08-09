@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, db } from '../firebase';
+import { auth, db } from './firebase';
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin } from 'react-icons/fa';
 
 // --- Reusable Components ---
@@ -102,35 +102,41 @@ const Dashboard = ({ handleSignOut }) => {
 
         // 1. Fetch Vendor's own details
         const vendorRef = ref(db, `vendors/${user.uid}`);
-        onValue(vendorRef, (snapshot) => {
+        const unsubscribeVendor = onValue(vendorRef, (snapshot) => {
             if (snapshot.exists()) {
                 const vendorData = snapshot.val();
                 setVendor(vendorData);
 
-                // 2. Once we have vendor data (especially phone), listen for assigned orders
+                // 2. Once we have vendor data, stop the main loading indicator
+                setLoading(false);
+
+                // 3. Listen for assigned orders in a separate listener
                 const assignmentsRef = ref(db, 'assignments');
                 const q = query(assignmentsRef, orderByChild('vendorPhone'), equalTo(vendorData.phone));
 
-                onValue(q, (assignmentSnapshot) => {
+                const unsubscribeAssignments = onValue(q, (assignmentSnapshot) => {
                     const orders = [];
                     assignmentSnapshot.forEach(childSnapshot => {
                         const order = { id: childSnapshot.key, ...childSnapshot.val() };
-                        // Only show orders that are 'assigned'
                         if (order.status === 'assigned') {
                             orders.push(order);
                         }
                     });
                     setAssignedOrders(orders);
-                    setLoading(false);
                 });
 
+                // Return a cleanup function for the assignments listener
+                return () => unsubscribeAssignments();
+
             } else {
-                // This case might happen if data is being created.
-                // Or if the user is somehow authenticated but not in the DB.
+                setLoading(false);
                 toast.error("Vendor profile not found. Redirecting to registration.");
                 navigate('/register');
             }
         });
+
+        // Return the cleanup function for the vendor listener
+        return () => unsubscribeVendor();
 
     }, [navigate]);
 
