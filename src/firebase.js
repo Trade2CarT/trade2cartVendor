@@ -18,10 +18,10 @@ const firebaseConfig = {
     
 const app = initializeApp(firebaseConfig);
 
-initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY),
-    isTokenAutoRefreshEnabled: true,
-});
+// initializeAppCheck(app, {
+//     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY),
+//     isTokenAutoRefreshEnabled: true,
+// });
 
 export const auth = getAuth(app);
 export const db = getDatabase(app);
