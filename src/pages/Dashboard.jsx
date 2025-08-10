@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { db } from '../firebase';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
-import { signOut } from 'firebase/auth';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
 
@@ -117,10 +117,7 @@ const ProfileModal = ({ vendor, onClose }) => {
 
 // --- Main Dashboard Component ---
 const Dashboard = () => {
-    const { state } = useLocation();
     const navigate = useNavigate();
-    const phone = state?.phone || auth.currentUser?.phoneNumber.slice(3) || null;
-
     const [vendor, setVendor] = useState(null);
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -128,29 +125,35 @@ const Dashboard = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [usersMap, setUsersMap] = useState({});
 
-    // Effect to check auth status and fetch vendor data
+    // Effect to robustly check auth state and fetch vendor data
     useEffect(() => {
-        if (!phone) {
-            toast.error("Authentication error. Please log in again.");
-            navigate('/');
-            return;
-        }
+        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+            if (user && user.phoneNumber) {
+                const phoneWithoutCountryCode = user.phoneNumber.slice(3); // Removes '+91'
+                const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(phoneWithoutCountryCode));
 
-        const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(phone));
+                const unsubscribeVendor = onValue(vendorQuery, (snapshot) => {
+                    if (snapshot.exists()) {
+                        const vendorData = firebaseObjectToArray(snapshot)[0];
+                        setVendor(vendorData);
+                    } else {
+                        toast.error("Vendor profile not found. Please complete your registration.");
+                        navigate('/register');
+                    }
+                    setLoading(false);
+                });
 
-        const unsubscribeVendor = onValue(vendorQuery, (snapshot) => {
-            if (snapshot.exists()) {
-                const vendorData = firebaseObjectToArray(snapshot)[0];
-                setVendor(vendorData);
+                return () => unsubscribeVendor(); // Cleanup vendor listener
             } else {
-                toast.error("Vendor profile not found. Please complete your registration.");
-                navigate('/register');
+                // If no user is logged in, redirect to login
+                toast.error("Authentication required. Please log in.");
+                navigate('/');
+                setLoading(false);
             }
-            setLoading(false);
         });
 
-        return () => unsubscribeVendor();
-    }, [phone, navigate]);
+        return () => unsubscribeAuth(); // Cleanup auth listener
+    }, [navigate]);
 
     // Effect to fetch assigned orders once vendor data is available
     useEffect(() => {
@@ -158,7 +161,7 @@ const Dashboard = () => {
 
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
 
-        const unsubscribeAssignments = onValue(assignmentsQuery, async (snapshot) => {
+        const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
             const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
             setAssignedOrders(assigned);
         });
@@ -208,7 +211,7 @@ const Dashboard = () => {
             if (userData.otp === enteredOtp) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                navigate(`/process`, { state: { order: otpModalOrder, vendor, vendormobile: phone, vendorLocation: vendor.location } });
+                navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
             } else {
                 toast.error("Invalid OTP. Please ask the customer to check again.");
             }
