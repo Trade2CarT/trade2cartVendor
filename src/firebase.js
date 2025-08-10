@@ -3,7 +3,8 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
+// Comment out the App Check import
+// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
@@ -14,14 +15,17 @@ const firebaseConfig = {
     messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_APP_ID,
 };
-     
-    
+
 const app = initializeApp(firebaseConfig);
 
+// --- COMMENT OUT THE ENTIRE APP CHECK BLOCK ---
+/*
 initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY),
     isTokenAutoRefreshEnabled: true,
 });
+*/
+// --- END OF BLOCK TO COMMENT OUT ---
 
 export const auth = getAuth(app);
 export const db = getDatabase(app);
