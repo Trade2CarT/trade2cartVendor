@@ -1,31 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '../firebase';
-import logo from '../assets/images/logo.PNG'; // Make sure you have this logo file
+import logo from '../assets/images/logo.PNG';
 
 const LoginPage = () => {
     const [phone, setPhone] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    const handleGetOtp = async () => {
-        if (phone.length !== 10) {
-            return toast.error('Please enter a valid 10-digit mobile number.');
-        }
-        setLoading(true);
-        try {
-            // Use an invisible reCAPTCHA
+    // This function sets up the reCAPTCHA verifier
+    const setupRecaptcha = () => {
+        if (!window.recaptchaVerifier) {
             window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
                 'size': 'invisible',
                 'callback': (response) => {
                     // reCAPTCHA solved, allow signInWithPhoneNumber.
                 }
             });
+        }
+    };
 
+    // Set up reCAPTCHA when the component loads
+    useEffect(() => {
+        setupRecaptcha();
+    }, []);
+
+    const handleGetOtp = async () => {
+        if (phone.length !== 10) {
+            return toast.error('Please enter a valid 10-digit mobile number.');
+        }
+        setLoading(true);
+
+        try {
+            const verifier = window.recaptchaVerifier;
             const fullPhoneNumber = `+91${phone}`;
-            const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, window.recaptchaVerifier);
+            const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, verifier);
 
             // Pass the confirmationResult to the OTP page
             window.confirmationResult = confirmationResult;
@@ -36,12 +47,8 @@ const LoginPage = () => {
         } catch (error) {
             console.error('Error sending OTP:', error);
             toast.error('Failed to send OTP. Please try again.');
-            // Reset reCAPTCHA if it fails
-            if (window.recaptchaVerifier) {
-                window.recaptchaVerifier.render().then(function (widgetId) {
-                    window.grecaptcha.reset(widgetId);
-                });
-            }
+            // It's often better to reload the page or guide the user to retry
+            // if reCAPTCHA fails catastrophically.
         } finally {
             setLoading(false);
         }

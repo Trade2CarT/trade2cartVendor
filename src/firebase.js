@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
-// App Check is disabled to prevent reCAPTCHA and OTP errors.
+// App Check must be commented out to prevent login errors.
 // import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -18,7 +18,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-/* --- APP CHECK TEMPORARILY DISABLED ---
+/* --- APP CHECK PERMANENTLY DISABLED ---
 initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY),
     isTokenAutoRefreshEnabled: true,
