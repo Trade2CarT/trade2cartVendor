@@ -175,7 +175,9 @@ const Dashboard = () => {
     useEffect(() => {
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
-            setUsersMap(snapshot.val() || {});
+            const usersData = snapshot.val() || {};
+            // Create a map of userId -> user data
+            setUsersMap(usersData);
         }, (error) => {
             console.error("Error fetching users:", error);
             toast.error("Could not load user data.");
@@ -194,10 +196,14 @@ const Dashboard = () => {
         }
     };
 
+    // --- THIS IS THE CORRECTED OTP VERIFICATION FUNCTION ---
     const handleProcessOrder = async (enteredOtp) => {
-        if (!otpModalOrder) return;
+        if (!otpModalOrder || !otpModalOrder.userId) {
+            return toast.error("Cannot process order: User ID is missing.");
+        };
 
         try {
+            // Directly get the user's data using the userId from the assignment
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
 
@@ -207,9 +213,11 @@ const Dashboard = () => {
 
             const userData = userSnapshot.val();
 
+            // Compare the OTP from the database with the one the vendor entered
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
+                // Navigate to the processing page with necessary info
                 navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
             } else {
                 toast.error("Invalid OTP. Please ask the customer to check again.");
@@ -221,18 +229,15 @@ const Dashboard = () => {
     };
 
     const groupedOrders = assignedOrders.reduce((acc, order) => {
-        if (!acc[order.mobile]) {
-            acc[order.mobile] = {
-                mobile: order.mobile,
-                vendorName: order.vendorName,
-                userId: order.userId, // Make sure userId is part of the assignment data
-                products: [],
-                totalAmount: 0,
-                id: order.id
+        // Grouping by userId is more reliable than mobile number
+        const key = order.userId || order.mobile;
+        if (!acc[key]) {
+            acc[key] = {
+                ...order,
+                productsList: [],
             };
         }
-        acc[order.mobile].products.push(order.products);
-        acc[order.mobile].totalAmount += parseFloat(order.totalAmount || 0);
+        acc[key].productsList.push(order.products);
         return acc;
     }, {});
     const groupedList = Object.values(groupedOrders);
