@@ -156,7 +156,6 @@ const Dashboard = () => {
         return () => unsubscribeAuth();
     }, [navigate]);
 
-
     useEffect(() => {
         if (!vendor) return;
 
@@ -165,6 +164,9 @@ const Dashboard = () => {
         const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
             const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
             setAssignedOrders(assigned);
+        }, (error) => {
+            console.error("Error fetching assignments:", error);
+            toast.error("Could not load assigned orders.");
         });
 
         return () => unsubscribeAssignments();
@@ -173,12 +175,10 @@ const Dashboard = () => {
     useEffect(() => {
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
-            const users = firebaseObjectToArray(snapshot);
-            const map = {};
-            users.forEach(user => {
-                map[user.phone] = user.address || 'No address provided';
-            });
-            setUsersMap(map);
+            setUsersMap(snapshot.val() || {});
+        }, (error) => {
+            console.error("Error fetching users:", error);
+            toast.error("Could not load user data.");
         });
 
         return () => unsubscribeUsers();
@@ -198,17 +198,16 @@ const Dashboard = () => {
         if (!otpModalOrder) return;
 
         try {
-            const userQuery = query(ref(db, 'users'), orderByChild('phone'), equalTo(otpModalOrder.mobile));
-            const userSnapshot = await get(userQuery);
+            const userRef = ref(db, `users/${otpModalOrder.userId}`);
+            const userSnapshot = await get(userRef);
 
             if (!userSnapshot.exists()) {
                 return toast.error("Customer data could not be found!");
             }
 
-            const userId = Object.keys(userSnapshot.val())[0];
-            const userData = userSnapshot.val()[userId];
+            const userData = userSnapshot.val();
 
-            if (userData.otp === enteredOtp) {
+            if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
                 navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
@@ -217,7 +216,7 @@ const Dashboard = () => {
             }
         } catch (error) {
             console.error("OTP Verification Error:", error);
-            toast.error("An error occurred during verification.");
+            toast.error("An error occurred during verification. Please check your database rules.");
         }
     };
 
@@ -226,6 +225,7 @@ const Dashboard = () => {
             acc[order.mobile] = {
                 mobile: order.mobile,
                 vendorName: order.vendorName,
+                userId: order.userId, // Make sure userId is part of the assignment data
                 products: [],
                 totalAmount: 0,
                 id: order.id
@@ -305,24 +305,20 @@ const Dashboard = () => {
                                     <tr>
                                         <th className="px-4 py-3">Customer</th>
                                         <th className="px-4 py-3">Address</th>
-                                        <th className="px-4 py-3">Products</th>
                                         <th className="px-4 py-3">Contact</th>
-                                        <th className="px-4 py-3">Total</th>
                                         <th className="px-4 py-3">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {groupedList.map(order => (
                                         <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-4 font-medium text-gray-900">{order.vendorName}</td>
-                                            <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.mobile] || 'N/A'}</td>
-                                            <td className="px-4 py-4">{order.products.join(', ')}</td>
+                                            <td className="px-4 py-4 font-medium text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</td>
+                                            <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.userId]?.address || 'N/A'}</td>
                                             <td className="px-4 py-4">
                                                 <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
                                                     <FaPhoneAlt size={12} /> {order.mobile}
                                                 </a>
                                             </td>
-                                            <td className="px-4 py-4 font-semibold">₹{order.totalAmount.toFixed(2)}</td>
                                             <td className="px-4 py-4">
                                                 <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
                                                     Process
