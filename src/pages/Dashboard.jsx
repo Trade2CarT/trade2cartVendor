@@ -65,7 +65,7 @@ const OtpModal = ({ order, onClose, onVerify }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center">
                 <h3 className="text-xl font-bold text-gray-800">Order Verification</h3>
-                <p className="text-gray-600 mt-2">Enter the 4-digit OTP from the customer's app to process the order for <b className="text-blue-600">{order.userName}</b>.</p>
+                <p className="text-gray-600 mt-2">Enter the 4-digit OTP from the customer's app to process the order for <b className="text-blue-600">{order.vendorName}</b>.</p>
                 <div className="my-6 flex justify-center gap-3">
                     {otp.map((digit, i) => (
                         <input
@@ -126,6 +126,7 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [otpModalOrder, setOtpModalOrder] = useState(null);
     const [showProfileModal, setShowProfileModal] = useState(false);
+    const [usersMap, setUsersMap] = useState({});
 
     // Effect to check auth status and fetch vendor data
     useEffect(() => {
@@ -155,26 +156,30 @@ const Dashboard = () => {
     useEffect(() => {
         if (!vendor) return;
 
-        const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorId'), equalTo(vendor.id));
+        const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
 
         const unsubscribeAssignments = onValue(assignmentsQuery, async (snapshot) => {
             const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
-
-            const enrichedOrders = await Promise.all(assigned.map(async (order) => {
-                const userQuery = query(ref(db, 'users'), orderByChild('phone'), equalTo(order.mobile));
-                const userSnapshot = await get(userQuery);
-                if (userSnapshot.exists()) {
-                    const userId = Object.keys(userSnapshot.val())[0];
-                    const userData = userSnapshot.val()[userId];
-                    return { ...order, userName: userData.name, userAddress: userData.address, userId };
-                }
-                return { ...order, userName: 'Unknown User', userAddress: 'N/A' };
-            }));
-            setAssignedOrders(enrichedOrders);
+            setAssignedOrders(assigned);
         });
 
         return () => unsubscribeAssignments();
     }, [vendor]);
+
+    // Effect to fetch all users to map phone numbers to addresses
+    useEffect(() => {
+        const usersRef = ref(db, 'users');
+        const unsubscribeUsers = onValue(usersRef, (snapshot) => {
+            const users = firebaseObjectToArray(snapshot);
+            const map = {};
+            users.forEach(user => {
+                map[user.phone] = user.address || 'No address provided';
+            });
+            setUsersMap(map);
+        });
+
+        return () => unsubscribeUsers();
+    }, []);
 
     const handleSignOut = async () => {
         try {
@@ -190,18 +195,20 @@ const Dashboard = () => {
         if (!otpModalOrder) return;
 
         try {
-            const userRef = ref(db, `users/${otpModalOrder.userId}`);
-            const userSnapshot = await get(userRef);
+            const userQuery = query(ref(db, 'users'), orderByChild('phone'), equalTo(otpModalOrder.mobile));
+            const userSnapshot = await get(userQuery);
 
             if (!userSnapshot.exists()) {
                 return toast.error("Customer data could not be found!");
             }
 
-            const userData = userSnapshot.val();
+            const userId = Object.keys(userSnapshot.val())[0];
+            const userData = userSnapshot.val()[userId];
+
             if (userData.otp === enteredOtp) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                navigate(`/process`, { state: { order: otpModalOrder, vendor } });
+                navigate(`/process`, { state: { order: otpModalOrder, vendor, vendormobile: phone, vendorLocation: vendor.location } });
             } else {
                 toast.error("Invalid OTP. Please ask the customer to check again.");
             }
@@ -210,6 +217,22 @@ const Dashboard = () => {
             toast.error("An error occurred during verification.");
         }
     };
+
+    const groupedOrders = assignedOrders.reduce((acc, order) => {
+        if (!acc[order.mobile]) {
+            acc[order.mobile] = {
+                mobile: order.mobile,
+                vendorName: order.vendorName,
+                products: [],
+                totalAmount: 0,
+                id: order.id
+            };
+        }
+        acc[order.mobile].products.push(order.products);
+        acc[order.mobile].totalAmount += parseFloat(order.totalAmount || 0);
+        return acc;
+    }, {});
+    const groupedList = Object.values(groupedOrders);
 
     if (loading) {
         return <div className="flex items-center justify-center min-h-screen text-gray-600">Loading Vendor Dashboard...</div>;
@@ -263,7 +286,7 @@ const Dashboard = () => {
 
             <main className="p-4 md:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={assignedOrders.length} color="bg-blue-500" />
+                    <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={groupedList.length} color="bg-blue-500" />
                     <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value="0" color="bg-green-500" />
                     <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value="₹0" color="bg-purple-500" />
                 </div>
@@ -271,7 +294,7 @@ const Dashboard = () => {
                 <div className="bg-white p-4 rounded-xl shadow-md">
                     <h2 className="text-lg font-bold text-gray-800 mb-4">My Assigned Orders</h2>
                     <div className="overflow-x-auto">
-                        {assignedOrders.length === 0 ? (
+                        {groupedList.length === 0 ? (
                             <p className="text-center text-gray-500 py-8">No new orders assigned. Check back later!</p>
                         ) : (
                             <table className="w-full text-sm text-left text-gray-600">
@@ -279,20 +302,24 @@ const Dashboard = () => {
                                     <tr>
                                         <th className="px-4 py-3">Customer</th>
                                         <th className="px-4 py-3">Address</th>
+                                        <th className="px-4 py-3">Products</th>
                                         <th className="px-4 py-3">Contact</th>
+                                        <th className="px-4 py-3">Total</th>
                                         <th className="px-4 py-3">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {assignedOrders.map(order => (
+                                    {groupedList.map(order => (
                                         <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-4 font-medium text-gray-900">{order.userName || 'N/A'}</td>
-                                            <td className="px-4 py-4 flex items-center gap-2"><FaMapPin className="text-gray-400" />{order.userAddress || 'N/A'}</td>
+                                            <td className="px-4 py-4 font-medium text-gray-900">{order.vendorName}</td>
+                                            <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.mobile] || 'N/A'}</td>
+                                            <td className="px-4 py-4">{order.products.join(', ')}</td>
                                             <td className="px-4 py-4">
                                                 <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
                                                     <FaPhoneAlt size={12} /> {order.mobile}
                                                 </a>
                                             </td>
+                                            <td className="px-4 py-4 font-semibold">₹{order.totalAmount.toFixed(2)}</td>
                                             <td className="px-4 py-4">
                                                 <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
                                                     Process
