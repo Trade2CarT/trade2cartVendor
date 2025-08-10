@@ -119,7 +119,7 @@ const ProfileModal = ({ vendor, onClose }) => {
 const Dashboard = () => {
     const { state } = useLocation();
     const navigate = useNavigate();
-    const phone = state?.phone || null;
+    const phone = state?.phone || auth.currentUser?.phoneNumber.slice(3) || null;
 
     const [vendor, setVendor] = useState(null);
     const [assignedOrders, setAssignedOrders] = useState([]);
