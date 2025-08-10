@@ -124,6 +124,8 @@ const OtpPage = () => {
                     </span>
                 </p>
             </div>
+
+            
         </div>
     );
 };
