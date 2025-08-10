@@ -10,21 +10,16 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    // This function sets up the reCAPTCHA verifier
-    const setupRecaptcha = () => {
+    // Set up reCAPTCHA when the component loads
+    useEffect(() => {
         if (!window.recaptchaVerifier) {
             window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
                 'size': 'invisible',
                 'callback': (response) => {
-                    // reCAPTCHA solved, allow signInWithPhoneNumber.
+                    // reCAPTCHA solved.
                 }
             });
         }
-    };
-
-    // Set up reCAPTCHA when the component loads
-    useEffect(() => {
-        setupRecaptcha();
     }, []);
 
     const handleGetOtp = async () => {
@@ -38,17 +33,13 @@ const LoginPage = () => {
             const fullPhoneNumber = `+91${phone}`;
             const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, verifier);
 
-            // Pass the confirmationResult to the OTP page
             window.confirmationResult = confirmationResult;
-
             toast.success('OTP sent successfully!');
             navigate('/otp', { state: { phone } });
 
         } catch (error) {
             console.error('Error sending OTP:', error);
             toast.error('Failed to send OTP. Please try again.');
-            // It's often better to reload the page or guide the user to retry
-            // if reCAPTCHA fails catastrophically.
         } finally {
             setLoading(false);
         }
