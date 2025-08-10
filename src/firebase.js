@@ -3,7 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
-// Comment out the App Check import
+// App Check is disabled to prevent reCAPTCHA and OTP errors.
 // import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -18,15 +18,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// --- COMMENT OUT THE ENTIRE APP CHECK BLOCK ---
-/*
+/* --- APP CHECK TEMPORARILY DISABLED ---
 initializeAppCheck(app, {
     provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY),
     isTokenAutoRefreshEnabled: true,
 });
 */
-// --- END OF BLOCK TO COMMENT OUT ---
 
 export const auth = getAuth(app);
 export const db = getDatabase(app);
-export const storage = getStorage(app); // For file uploads
+export const storage = getStorage(app);
