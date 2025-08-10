@@ -125,17 +125,18 @@ const Dashboard = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [usersMap, setUsersMap] = useState({});
 
-    // Effect to robustly check auth state and fetch vendor data
+    // ====================================================================
+    // === THIS IS THE CORRECTED AND MORE ROBUST useEffect HOOK         ===
+    // ====================================================================
     useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             if (user && user.phoneNumber) {
+                try {
+                    const vendorPhone = user.phoneNumber;
+                    const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(vendorPhone));
 
-                // Use the full phone number from auth, which matches the format in the database
-                const vendorPhone = user.phoneNumber;
-                const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(vendorPhone));
+                    const snapshot = await get(vendorQuery); // Using get() for a one-time fetch
 
-
-                const unsubscribeVendor = onValue(vendorQuery, (snapshot) => {
                     if (snapshot.exists()) {
                         const vendorData = firebaseObjectToArray(snapshot)[0];
                         setVendor(vendorData);
@@ -143,20 +144,25 @@ const Dashboard = () => {
                         toast.error("Vendor profile not found. Please complete your registration.");
                         navigate('/register');
                     }
+                } catch (error) {
+                    console.error("Failed to fetch vendor data:", error);
+                    toast.error("Could not fetch your profile. Please try again later.");
+                    // You might want to sign out or navigate away if the profile can't be fetched
+                } finally {
+                    // This will run no matter what, ensuring the loading screen always disappears
                     setLoading(false);
-                });
-
-                return () => unsubscribeVendor(); // Cleanup vendor listener
+                }
             } else {
-                // If no user is logged in, redirect to login
+                // If no user is logged in, or user has no phone number
                 toast.error("Authentication required. Please log in.");
                 navigate('/');
                 setLoading(false);
             }
         });
 
-        return () => unsubscribeAuth(); // Cleanup auth listener
-    }, [navigate]);
+        return () => unsubscribeAuth(); // Cleanup the auth listener
+    }, [navigate]); // Dependency array
+
 
     // Effect to fetch assigned orders once vendor data is available
     useEffect(() => {
