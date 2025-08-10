@@ -14,7 +14,6 @@ const firebaseObjectToArray = (snapshot) => {
 };
 
 // --- Reusable UI Components ---
-
 const StatCard = ({ icon, title, value, color }) => (
     <div className="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
         <div className={`p-3 rounded-full ${color}`}>
@@ -125,9 +124,6 @@ const Dashboard = () => {
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [usersMap, setUsersMap] = useState({});
 
-    // ====================================================================
-    // === THIS IS THE CORRECTED AND MORE ROBUST useEffect HOOK         ===
-    // ====================================================================
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
             if (user && user.phoneNumber) {
@@ -135,7 +131,7 @@ const Dashboard = () => {
                     const vendorPhone = user.phoneNumber;
                     const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(vendorPhone));
 
-                    const snapshot = await get(vendorQuery); // Using get() for a one-time fetch
+                    const snapshot = await get(vendorQuery);
 
                     if (snapshot.exists()) {
                         const vendorData = firebaseObjectToArray(snapshot)[0];
@@ -147,24 +143,20 @@ const Dashboard = () => {
                 } catch (error) {
                     console.error("Failed to fetch vendor data:", error);
                     toast.error("Could not fetch your profile. Please try again later.");
-                    // You might want to sign out or navigate away if the profile can't be fetched
                 } finally {
-                    // This will run no matter what, ensuring the loading screen always disappears
                     setLoading(false);
                 }
             } else {
-                // If no user is logged in, or user has no phone number
                 toast.error("Authentication required. Please log in.");
                 navigate('/');
                 setLoading(false);
             }
         });
 
-        return () => unsubscribeAuth(); // Cleanup the auth listener
-    }, [navigate]); // Dependency array
+        return () => unsubscribeAuth();
+    }, [navigate]);
 
 
-    // Effect to fetch assigned orders once vendor data is available
     useEffect(() => {
         if (!vendor) return;
 
@@ -178,7 +170,6 @@ const Dashboard = () => {
         return () => unsubscribeAssignments();
     }, [vendor]);
 
-    // Effect to fetch all users to map phone numbers to addresses
     useEffect(() => {
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
