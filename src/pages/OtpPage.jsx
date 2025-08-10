@@ -53,29 +53,38 @@ const OtpPage = () => {
                 return;
             }
 
+            // 1. Verify the OTP with Firebase Auth
             const userCredential = await confirmationResult.confirm(enteredOtp);
             const user = userCredential.user;
-
             toast.success('OTP Verified Successfully!');
 
-            // Check if vendor profile exists in the database
+            // 2. Check if a vendor profile already exists in the database
             const vendorRef = ref(db, `vendors/${user.uid}`);
             const snapshot = await get(vendorRef);
 
             if (snapshot.exists()) {
-                // Vendor is already registered, go to dashboard
+                // If it exists, the user is old. Go to the dashboard.
                 navigate('/dashboard');
             } else {
-                // New vendor, go to registration form
+                // If it doesn't exist, the user is new. Go to the registration form.
                 navigate('/register');
             }
 
         } catch (error) {
-            console.error('OTP Verification Error:', error);
-            toast.error('Incorrect OTP. Please try again.');
-        } finally {
-            setLoading(false);
+            setLoading(false); // Stop loading on error
+            console.error('OTP Page Error:', error);
+
+            // Provide more specific feedback based on the error type
+            if (error.code === 'auth/invalid-verification-code') {
+                toast.error('Incorrect OTP. Please try again.');
+            } else if (error.code === 'permission-denied') {
+                toast.error('You do not have permission to access records. Please contact support.');
+            }
+            else {
+                toast.error('An unexpected error occurred. Please try again.');
+            }
         }
+        // No need for a finally block, setLoading(false) is handled in the catch
     };
 
     return (
