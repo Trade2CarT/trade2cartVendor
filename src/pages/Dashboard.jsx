@@ -129,8 +129,11 @@ const Dashboard = () => {
     useEffect(() => {
         const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
             if (user && user.phoneNumber) {
-                const phoneWithoutCountryCode = user.phoneNumber.slice(3); // Removes '+91'
-                const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(phoneWithoutCountryCode));
+
+                // Use the full phone number from auth, which matches the format in the database
+                const vendorPhone = user.phoneNumber;
+                const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(vendorPhone));
+
 
                 const unsubscribeVendor = onValue(vendorQuery, (snapshot) => {
                     if (snapshot.exists()) {
