@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ref, onValue, get, query, orderByChild, equalTo } from 'firebase/database';
-import { auth, db } from '../firebase';
-import { signOut } from "firebase/auth";
+import { db } from '../firebase';
+import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
 
 // --- Helper Function ---
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
-    return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
+    return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
 };
 
 // --- Reusable UI Components ---
@@ -116,7 +117,10 @@ const ProfileModal = ({ vendor, onClose }) => {
 
 // --- Main Dashboard Component ---
 const Dashboard = () => {
+    const { state } = useLocation();
     const navigate = useNavigate();
+    const phone = state?.phone || null;
+
     const [vendor, setVendor] = useState(null);
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -125,20 +129,16 @@ const Dashboard = () => {
 
     // Effect to check auth status and fetch vendor data
     useEffect(() => {
-        const user = auth.currentUser;
-        if (!user || !user.phoneNumber) {
-            toast.error("Authentication session expired. Please log in again.");
+        if (!phone) {
+            toast.error("Authentication error. Please log in again.");
             navigate('/');
             return;
         }
 
-        // CORRECTED LOGIC: Find vendor by phone number instead of UID
-        const phoneWithoutCountryCode = user.phoneNumber.slice(3); // Removes '+91'
-        const vendorsQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(phoneWithoutCountryCode));
+        const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(phone));
 
-        const unsubscribeVendor = onValue(vendorsQuery, (snapshot) => {
+        const unsubscribeVendor = onValue(vendorQuery, (snapshot) => {
             if (snapshot.exists()) {
-                // Since the query is correct, we get the vendor object directly
                 const vendorData = firebaseObjectToArray(snapshot)[0];
                 setVendor(vendorData);
             } else {
@@ -149,7 +149,7 @@ const Dashboard = () => {
         });
 
         return () => unsubscribeVendor();
-    }, [navigate]);
+    }, [phone, navigate]);
 
     // Effect to fetch assigned orders once vendor data is available
     useEffect(() => {
