@@ -75,7 +75,6 @@ const Process = () => {
         const newBillItems = [...billItems];
         newBillItems[index].name = value;
 
-        // Auto-fill rate if item exists in master list for the vendor's location
         const matchedItem = masterItems.find(
             item => item.name.toLowerCase() === value.toLowerCase() &&
                 item.location.toLowerCase() === vendorLocation.toLowerCase()
@@ -83,10 +82,9 @@ const Process = () => {
 
         if (matchedItem) {
             newBillItems[index].rate = matchedItem.rate;
-            newBillItems[index].isCustom = false; // Item from master list
+            newBillItems[index].isCustom = false;
         } else {
-            newBillItems[index].isCustom = true; // New/custom item
-            // Do not clear the rate if the user is typing a custom item
+            newBillItems[index].isCustom = true;
         }
 
         updateItemTotal(index, newBillItems);
@@ -108,6 +106,7 @@ const Process = () => {
     const addAnotherItem = () => {
         setBillItems([...billItems, { name: '', rate: '', weight: '', total: 0, isCustom: true }]);
     };
+
 
     const removeItem = (index) => {
         const newBillItems = billItems.filter((_, i) => i !== index);
@@ -131,33 +130,34 @@ const Process = () => {
     const handleSubmitBill = async () => {
         setLoading(true);
         try {
+            // --- THIS IS THE FIX ---
             const billData = {
-                assignmentId,
+                // The key is now 'assignmentID' (uppercase D) to match the query on the user's account page.
+                assignmentID: assignmentId,
                 vendorId: assignment.vendorId,
                 userId: assignment.userId,
-                billItems: billItems.map(({ isCustom, ...item }) => item), // Remove isCustom before saving
+                billItems: billItems.map(({ isCustom, ...item }) => item),
                 totalBill,
                 timestamp: new Date().toISOString(),
-                mobile: assignment.mobile, // Keep mobile for easier lookup if needed
+                mobile: assignment.mobile,
             };
 
-            // 1. Create a new primary bill record in /bills
             const newBillRef = push(ref(db, 'bills'));
             const newBillId = newBillRef.key;
 
             const updates = {};
-            // Write to the main bills node
             updates[`/bills/${newBillId}`] = billData;
-            // Write a copy to the user's history
             updates[`/users/${assignment.userId}/bills/${newBillId}`] = billData;
-            // Write a copy to the vendor's history
             updates[`/vendors/${assignment.vendorId}/bills/${newBillId}`] = billData;
 
-            // 2. Update the status of the assignment and the user
             updates[`/assignments/${assignmentId}/status`] = 'completed';
-            updates[`/users/${assignment.userId}/Status`] = 'completed';
-            updates[`/users/${assignment.userId}/otp`] = null; // Clear the OTP
-            updates[`/users/${assignment.userId}/currentAssignmentId`] = null; // Clear current assignment
+            updates[`/assignments/${assignmentId}/totalAmount`] = totalBill; // Also add total to assignment for history view
+
+            // --- ANOTHER IMPORTANT FIX ---
+            // Set the user's status back to 'available' so they can place new orders.
+            updates[`/users/${assignment.userId}/Status`] = 'available';
+            updates[`/users/${assignment.userId}/otp`] = null;
+            updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
 
             await update(ref(db), updates);
 
