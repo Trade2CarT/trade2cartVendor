@@ -141,6 +141,7 @@ const Process = () => {
                 timestamp: new Date().toISOString(),
                 mobile: assignment.mobile,
             };
+            console.log("Attempting to save this bill data:", billData);
 
             const newBillRef = push(ref(db, 'bills'));
             const newBillId = newBillRef.key;
