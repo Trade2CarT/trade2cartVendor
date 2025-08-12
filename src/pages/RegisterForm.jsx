@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { ref as dbRef, set } from 'firebase/database';
+import { ref as dbRef, set, get } from 'firebase/database'; // --- MODIFICATION: Added 'get'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '../firebase';
 import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload } from 'react-icons/fa';
+import Loader from './Loader'; // --- MODIFICATION: Assuming you have a Loader component
 
 // A reusable file input component for better UI
 const FileInput = ({ label, icon, onChange, fileName }) => (
@@ -18,11 +19,20 @@ const FileInput = ({ label, icon, onChange, fileName }) => (
     </div>
 );
 
+// --- MODIFICATION START: Loader overlay component ---
+const LoaderOverlay = () => (
+    <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-2xl z-10">
+        <Loader />
+    </div>
+);
+// --- MODIFICATION END ---
+
 const RegisterForm = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         name: '',
-        location: 'Vellore', // Default location
+        location: '', // --- MODIFICATION: Default will be set after fetching from DB
+        address: '', // --- MODIFICATION: Added address field
         aadhaar: '',
         pan: '',
         license: '',
@@ -33,19 +43,58 @@ const RegisterForm = () => {
         panPhoto: null,
         licensePhoto: null,
     });
-    const [loading, setLoading] = useState(false);
+    const [locations, setLocations] = useState([]); // --- MODIFICATION: State for locations
+    const [loading, setLoading] = useState(false); // For submission
+    const [isFetching, setIsFetching] = useState(true); // For initial data fetch
+
+    // --- MODIFICATION START: Fetch locations from DB on component mount ---
+    useEffect(() => {
+        const fetchLocations = async () => {
+            try {
+                const locationsRef = dbRef(db, 'locations');
+                const snapshot = await get(locationsRef);
+                if (snapshot.exists()) {
+                    const locationsArray = snapshot.val();
+                    setLocations(locationsArray);
+                    // Set default location to the first one from the DB
+                    if (locationsArray.length > 0) {
+                        setFormData(prev => ({ ...prev, location: locationsArray[0] }));
+                    }
+                } else {
+                    toast.error("Could not fetch locations. Please contact support.");
+                    setLocations(['Default Location']); // Fallback
+                }
+            } catch (error) {
+                toast.error("Error fetching locations.");
+                console.error("Error fetching locations:", error);
+            } finally {
+                setIsFetching(false);
+            }
+        };
+
+        fetchLocations();
+    }, []);
+    // --- MODIFICATION END ---
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // --- MODIFICATION START: Add file size validation ---
     const handleFileChange = (e, key) => {
         const file = e.target.files[0];
         if (file) {
+            // Check file size (200KB limit)
+            if (file.size > 200 * 1024) {
+                toast.error(`'${file.name}' is too large. Please upload files under 200KB.`);
+                return; // Stop the function if file is too large
+            }
             setFiles(prev => ({ ...prev, [key]: file }));
         }
     };
+    // --- MODIFICATION END ---
+
 
     const uploadFile = async (file, path) => {
         if (!file) return null;
@@ -63,8 +112,8 @@ const RegisterForm = () => {
             return;
         }
 
-        // Basic validation
-        if (!formData.name || !formData.aadhaar || !formData.pan || !formData.license) {
+        // --- MODIFICATION: Added address to validation ---
+        if (!formData.name || !formData.address || !formData.aadhaar || !formData.pan || !formData.license) {
             return toast.error("Please fill all text fields.");
         }
         if (!files.profilePhoto || !files.aadhaarPhoto || !files.panPhoto || !files.licensePhoto) {
@@ -73,7 +122,6 @@ const RegisterForm = () => {
 
         setLoading(true);
         try {
-            // Upload all files in parallel
             const [profilePhotoURL, aadhaarPhotoURL, panPhotoURL, licensePhotoURL] = await Promise.all([
                 uploadFile(files.profilePhoto, `vendors/${user.uid}/profile.jpg`),
                 uploadFile(files.aadhaarPhoto, `vendors/${user.uid}/aadhaar.jpg`),
@@ -81,12 +129,11 @@ const RegisterForm = () => {
                 uploadFile(files.licensePhoto, `vendors/${user.uid}/license.jpg`),
             ]);
 
-            // Prepare data for Realtime Database
             const vendorData = {
-                ...formData,
+                ...formData, // This now includes the new 'address' field
                 uid: user.uid,
                 phone: user.phoneNumber,
-                status: 'pending', // Initial status
+                status: 'pending',
                 createdAt: new Date().toISOString(),
                 profilePhotoURL,
                 aadhaarPhotoURL,
@@ -94,7 +141,6 @@ const RegisterForm = () => {
                 licensePhotoURL,
             };
 
-            // Save data to Realtime Database
             await set(dbRef(db, `vendors/${user.uid}`), vendorData);
 
             toast.success('Registration submitted for verification!');
@@ -108,9 +154,21 @@ const RegisterForm = () => {
         }
     };
 
+    // --- MODIFICATION: Show loader while fetching initial data ---
+    if (isFetching) {
+        return (
+            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+                <Loader />
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl">
+            <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl relative">
+                {/* --- MODIFICATION: Add loader overlay on submission --- */}
+                {loading && <LoaderOverlay />}
+
                 <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">Become a Partner</h2>
                 <p className="text-center text-gray-500 mb-8">Provide your details for verification.</p>
 
@@ -132,12 +190,20 @@ const RegisterForm = () => {
                         <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleInputChange} className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" required />
                     </div>
 
+                    {/* --- MODIFICATION START: Added Address Textarea --- */}
+                    <div className="relative">
+                        <FaMapMarkerAlt className="absolute left-3 top-4 -translate-y-1/2 text-gray-400" />
+                        <textarea name="address" placeholder="Full Address" value={formData.address} onChange={handleInputChange} className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows="2" required />
+                    </div>
+                    {/* --- MODIFICATION END --- */}
+
                     <div className="relative">
                         <FaMapMarkerAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        {/* --- MODIFICATION: Dynamic options for location select --- */}
                         <select name="location" value={formData.location} onChange={handleInputChange} className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 appearance-none bg-white" required>
-                            <option>Vellore</option>
-                            <option>Chennai</option>
-                            <option>Bangalore</option>
+                            {locations.map((loc) => (
+                                <option key={loc} value={loc}>{loc}</option>
+                            ))}
                         </select>
                     </div>
 
@@ -163,7 +229,7 @@ const RegisterForm = () => {
                         <FileInput label="License Photo" icon={<FaFileUpload className="text-yellow-500" />} onChange={(e) => handleFileChange(e, 'licensePhoto')} fileName={files.licensePhoto?.name} />
                     </div>
 
-                    <button type="submit" disabled={loading} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 disabled:bg-gray-400">
+                    <button type="submit" disabled={loading} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed">
                         {loading ? 'Submitting...' : 'Submit for Verification'}
                     </button>
                 </form>
