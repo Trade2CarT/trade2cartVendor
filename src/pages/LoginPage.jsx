@@ -8,12 +8,20 @@ import SEO from '../components/SEO';
 import Loader from './Loader';
 // import Loader from '../components/Loader';
 
+// A new component to display the loader as an overlay
+const LoaderOverlay = () => (
+    <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-2xl z-10">
+        <Loader />
+    </div>
+);
+
+
 const LoginPage = () => {
     const [phone, setPhone] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
-    // Set up reCAPTCHA when the component loads
+    // This useEffect now runs only once when the component mounts
     useEffect(() => {
         if (!window.recaptchaVerifier) {
             window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
@@ -23,7 +31,7 @@ const LoginPage = () => {
                 }
             });
         }
-    }, []);
+    }, []); // Empty dependency array ensures this runs only once
 
     const handleGetOtp = async () => {
         if (phone.length !== 10) {
@@ -42,15 +50,11 @@ const LoginPage = () => {
 
         } catch (error) {
             console.error('Error sending OTP:', error);
-            toast.error('Failed to send OTP. Please try again.');
+            toast.error('Failed to send OTP. Please refresh the page and try again.');
         } finally {
             setLoading(false);
         }
     };
-
-    if (loading) {
-        return <Loader fullscreen />;
-    }
 
     return (
         <>
@@ -59,8 +63,13 @@ const LoginPage = () => {
                 description="Login to your Trade2Cart vendor account to manage scrap pickup leads and connect with customers."
             />
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+                {/* This container MUST remain in the DOM at all times for reCAPTCHA */}
                 <div id="recaptcha-container"></div>
-                <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg text-center">
+
+                <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg text-center relative">
+                    {/* The loader is now an overlay and does not remove the form */}
+                    {loading && <LoaderOverlay />}
+
                     <img src={logo} alt="Trade2Cart Logo" className="w-20 h-20 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-gray-800">Partner Login</h2>
                     <p className="text-gray-500 mt-2 mb-6">Enter your phone number to continue.</p>
