@@ -1,10 +1,8 @@
 // src/firebase.js
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
-// App Check must be commented out to prevent login errors.
-// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
@@ -18,13 +16,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-/* --- APP CHECK PERMANENTLY DISABLED ---
-initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_V3_SITE_KEY),
-    isTokenAutoRefreshEnabled: true,
-});
-*/
-
+// Initialize Auth and set persistence
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence)
+    .catch((error) => {
+        console.error("Firebase persistence error:", error);
+    });
+
 export const db = getDatabase(app);
 export const storage = getStorage(app);
