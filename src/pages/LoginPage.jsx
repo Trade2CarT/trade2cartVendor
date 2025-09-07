@@ -6,23 +6,23 @@ import { auth } from '../firebase';
 import logo from '../assets/images/logo.PNG';
 import SEO from '../components/SEO';
 import Loader from './Loader';
-// import Loader from '../components/Loader';
 
 const LoginPage = () => {
     const [phone, setPhone] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    // *** RESTORED LOGIC: This useEffect is crucial for initializing reCAPTCHA ***
     useEffect(() => {
         if (!window.recaptchaVerifier) {
             window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
                 'size': 'invisible',
-                'callback': () => {
-                    // reCAPTCHA solved.
+                'callback': (response) => {
+                    // reCAPTCHA solved, allow signInWithPhoneNumber.
                 }
             });
         }
-    }, [auth]);
+    }, []);
 
     const handleGetOtp = async () => {
         if (phone.length !== 10) {
@@ -35,18 +35,20 @@ const LoginPage = () => {
             const fullPhoneNumber = `+91${phone}`;
             const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, verifier);
 
+            // Store the confirmation result on the window object to be used on the OTP page
             window.confirmationResult = confirmationResult;
             toast.success('OTP sent successfully!');
             navigate('/otp', { state: { phone } });
 
         } catch (error) {
             console.error('Error sending OTP:', error);
-            toast.error('Failed to send OTP. Please try again.');
+            toast.error('Failed to send OTP. Please refresh the page and try again.');
         } finally {
             setLoading(false);
         }
     };
 
+    // If loading, show the fullscreen loader
     if (loading) {
         return <Loader fullscreen />;
     }
@@ -54,11 +56,13 @@ const LoginPage = () => {
     return (
         <>
             <SEO
-                title="Vendor Login - Trade2Cart"
-                description="Login to your Trade2Cart vendor account to manage scrap pickup leads."
+                title="Trade2Cart Vendor Login"
+                description="Login to your Trade2Cart vendor account to manage scrap pickup leads and connect with customers."
             />
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+                {/* This container is required for the invisible reCAPTCHA */}
                 <div id="recaptcha-container"></div>
+
                 <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg text-center">
                     <img src={logo} alt="Trade2Cart Logo" className="w-20 h-20 mx-auto mb-4" />
                     <h2 className="text-2xl font-bold text-gray-800">Partner Login</h2>
