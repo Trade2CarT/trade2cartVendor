@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref as dbRef, set, get } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '../firebase';
+import { auth, db, storage } from '/src/firebase';
 import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle } from 'react-icons/fa';
-import Loader from './Loader';
-import SEO from '../components/SEO';
+import Loader from '/src/components/Loader';
+import SEO from '/src/components/SEO';
 
 // --- Reusable File Input Component with Validation ---
 const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
@@ -60,7 +60,8 @@ const RegisterForm = () => {
         const fetchLocations = async () => {
             setIsFetching(true);
             try {
-                const locationsRef = dbRef(db, 'locations');
+                // *** FIX: Changed 'locations' to 'location' to match your Firebase rules ***
+                const locationsRef = dbRef(db, 'location');
                 const snapshot = await get(locationsRef);
                 if (snapshot.exists()) {
                     const locationsArray = snapshot.val();
@@ -69,7 +70,7 @@ const RegisterForm = () => {
                         setFormData(prev => ({ ...prev, location: locationsArray[0] }));
                     }
                 } else {
-                    toast.error("Could not fetch locations.");
+                    toast.error("Could not fetch locations. Please add them to the database.");
                     setLocations([]);
                 }
             } catch (error) {
@@ -200,7 +201,7 @@ const RegisterForm = () => {
     };
 
     if (isFetching) {
-        return <div className="min-h-screen bg-gray-100 flex items-center justify-center"><Loader /></div>;
+        return <Loader fullscreen />;
     }
 
     return (
@@ -265,3 +266,4 @@ const RegisterForm = () => {
 };
 
 export default RegisterForm;
+
