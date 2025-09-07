@@ -48,18 +48,6 @@ const ProtectedRoute = () => {
         return () => unsubscribe();
     }, []);
 
-    const handleSignOut = () => {
-        signOut(auth)
-            .then(() => {
-                toast.success("Signed out successfully!");
-            })
-            .catch((error) => {
-                toast.error("Failed to sign out.");
-                console.error("Sign Out Error:", error);
-            });
-    };
-
-
     if (loading) {
         return <Loader fullscreen />;
     }
@@ -107,3 +95,4 @@ function App() {
 }
 
 export default App;
+

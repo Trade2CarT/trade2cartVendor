@@ -4,7 +4,7 @@ import { FaThLarge, FaUserAlt } from 'react-icons/fa';
 
 const Footer = () => {
     const activeLinkStyle = {
-        color: '#2563EB', // blue-600
+        color: '#2563EB', // This is Tailwind's blue-600
     };
 
     return (
@@ -32,3 +32,4 @@ const Footer = () => {
 };
 
 export default Footer;
+

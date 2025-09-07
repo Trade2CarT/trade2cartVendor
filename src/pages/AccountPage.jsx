@@ -50,7 +50,7 @@ const AccountPage = () => {
             <SEO title="My Account - Trade2Cart Vendor" description="Manage your vendor profile, view policies, and sign out." />
             <div className="p-4">
                 <div className="flex items-center space-x-4 mb-6">
-                    {vendor.profilePhotoURL ? (
+                    {vendor?.profilePhotoURL ? (
                         <img src={vendor.profilePhotoURL} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md" />
                     ) : (
                         <FaUserCircle className="text-6xl text-gray-400" />
@@ -92,3 +92,4 @@ const AccountPage = () => {
 };
 
 export default AccountPage;
+

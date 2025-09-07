@@ -19,7 +19,7 @@ const Spinner = styled.div`
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border-left-color: #09f;
+  border-left-color: #2563EB;
   animation: ${spin} 1s ease infinite;
 `;
 
@@ -46,3 +46,4 @@ const Loader = ({ fullscreen = false }) => {
 };
 
 export default Loader;
+

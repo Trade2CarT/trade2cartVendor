@@ -5,7 +5,7 @@ import { FaUserCircle } from 'react-icons/fa';
 
 const Header = ({ vendor }) => {
     return (
-        <header className="sticky top-0 bg-white shadow-md p-4 flex justify-between items-center z-40">
+        <header className="sticky top-0 bg-white shadow-sm p-4 flex justify-between items-center z-40">
             <Link to="/dashboard">
                 <img src={logo} alt="Trade2Cart Logo" className="h-8 w-auto" />
             </Link>
@@ -21,3 +21,4 @@ const Header = ({ vendor }) => {
 };
 
 export default Header;
+
