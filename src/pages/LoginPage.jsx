@@ -5,7 +5,8 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '../firebase';
 import logo from '../assets/images/logo.PNG';
 import SEO from '../components/SEO';
-import Loader from '../components/Loader';
+import Loader from './Loader';
+// import Loader from '../components/Loader';
 
 const LoginPage = () => {
     const [phone, setPhone] = useState('');
