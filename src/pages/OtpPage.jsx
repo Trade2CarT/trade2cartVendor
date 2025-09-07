@@ -4,8 +4,9 @@ import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { auth, db } from '/src/firebase';
 import logo from '/src/assets/images/logo.PNG';
-import Loader from '/src/components/Loader';
-// import SEO from '/src/components/SEO';
+// import Loader from '/src/components/Loader';
+import SEO from '/src/components/SEO';
+import Loader from './Loader';
 
 const OtpPage = () => {
     const [otp, setOtp] = useState(new Array(6).fill(''));
