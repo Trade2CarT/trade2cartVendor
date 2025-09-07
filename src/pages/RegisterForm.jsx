@@ -5,8 +5,9 @@ import { ref as dbRef, set, get } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '../firebase';
 import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle, FaCamera } from 'react-icons/fa';
-import Loader from '../components/Loader';
+// import Loader from '../components/Loader';
 import SEO from '../components/SEO';
+import Loader from './Loader';
 
 // --- Reusable File Input Component with Validation ---
 const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
