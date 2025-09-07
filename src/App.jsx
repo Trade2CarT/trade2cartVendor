@@ -8,7 +8,8 @@ import { auth, db } from './firebase';
 // --- Import Components ---
 import Header from './components/Header';
 import Footer from './components/Footer';
-import Loader from './components/Loader';
+// import Loader from './components/Loader';
+
 
 // --- Import Pages ---
 import LoginPage from './pages/LoginPage';
@@ -17,6 +18,7 @@ import Dashboard from './pages/Dashboard';
 import RegisterForm from './pages/RegisterForm';
 import Process from './pages/Process';
 import AccountPage from './pages/AccountPage';
+import Loader from './pages/Loader';
 
 // --- Auth State Checker ---
 // This component determines where to send the user based on their login and registration status.
