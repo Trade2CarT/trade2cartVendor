@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { db } from '../firebase';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
-import { FaBoxOpen, FaRupeeSign, FaTasks, FaSignOutAlt, FaUserCircle, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
+import { FaBoxOpen, FaRupeeSign, FaTasks, FaUserCircle, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
+import SEO from '../components/SEO';
 
 // --- Helper Function ---
 const firebaseObjectToArray = (snapshot) => {
@@ -176,7 +177,6 @@ const Dashboard = () => {
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
             const usersData = snapshot.val() || {};
-            // Create a map of userId -> user data
             setUsersMap(usersData);
         }, (error) => {
             console.error("Error fetching users:", error);
@@ -186,24 +186,12 @@ const Dashboard = () => {
         return () => unsubscribeUsers();
     }, []);
 
-    const handleSignOut = async () => {
-        try {
-            await signOut(auth);
-            toast.success("You've been signed out.");
-            navigate('/');
-        } catch (error) {
-            toast.error("Failed to sign out.");
-        }
-    };
-
-    // --- THIS IS THE CORRECTED OTP VERIFICATION FUNCTION ---
     const handleProcessOrder = async (enteredOtp) => {
         if (!otpModalOrder || !otpModalOrder.userId) {
             return toast.error("Cannot process order: User ID is missing.");
         };
 
         try {
-            // Directly get the user's data using the userId from the assignment
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
 
@@ -213,11 +201,9 @@ const Dashboard = () => {
 
             const userData = userSnapshot.val();
 
-            // Compare the OTP from the database with the one the vendor entered
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                // Navigate to the processing page with necessary info
                 navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
             } else {
                 toast.error("Invalid OTP. Please ask the customer to check again.");
@@ -229,7 +215,6 @@ const Dashboard = () => {
     };
 
     const groupedOrders = assignedOrders.reduce((acc, order) => {
-        // Grouping by userId is more reliable than mobile number
         const key = order.userId || order.mobile;
         if (!acc[key]) {
             acc[key] = {
@@ -252,9 +237,6 @@ const Dashboard = () => {
                 <FaTasks className="text-6xl text-yellow-500 mb-4" />
                 <h1 className="text-3xl font-bold text-yellow-800">Verification Pending</h1>
                 <p className="text-yellow-700 mt-2 max-w-md">Your profile has been submitted and is under review. We will notify you once verification is complete.</p>
-                <button onClick={handleSignOut} className="mt-8 px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow hover:bg-red-600">
-                    Sign Out
-                </button>
             </div>
         );
     }
@@ -265,82 +247,67 @@ const Dashboard = () => {
                 <FaTasks className="text-6xl text-red-500 mb-4" />
                 <h1 className="text-3xl font-bold text-red-800">Profile Rejected</h1>
                 <p className="text-red-700 mt-2 max-w-md">We're sorry, your profile could not be approved. Please contact support for more information.</p>
-                <button onClick={handleSignOut} className="mt-8 px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow hover:bg-red-600">
-                    Sign Out
-                </button>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <header className="bg-white shadow-sm p-4 flex justify-between items-center">
-                <div>
-                    <h1 className="text-xl font-bold text-gray-800">Welcome, {vendor?.name?.split(' ')[0]}</h1>
-                    <p className="text-sm text-gray-500">{vendor?.location}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                    <button onClick={() => setShowProfileModal(true)} className="cursor-pointer">
-                        {(vendor?.profilePhoto || vendor?.profilePhotoURL) ?
-                            <img src={vendor.profilePhoto || vendor.profilePhotoURL} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-blue-500" />
-                            : <FaUserCircle className="w-10 h-10 text-gray-400" />
-                        }
-                    </button>
-                    <button onClick={handleSignOut} className="text-gray-500 hover:text-red-500" title="Sign Out">
-                        <FaSignOutAlt size={24} />
-                    </button>
-                </div>
-            </header>
-
-            <main className="p-4 md:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={groupedList.length} color="bg-blue-500" />
-                    <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value="0" color="bg-green-500" />
-                    <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value="₹0" color="bg-purple-500" />
-                </div>
-
-                <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">My Assigned Orders</h2>
-                    <div className="overflow-x-auto">
-                        {groupedList.length === 0 ? (
-                            <p className="text-center text-gray-500 py-8">No new orders assigned. Check back later!</p>
-                        ) : (
-                            <table className="w-full text-sm text-left text-gray-600">
-                                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-3">Customer</th>
-                                        <th className="px-4 py-3">Address</th>
-                                        <th className="px-4 py-3">Contact</th>
-                                        <th className="px-4 py-3">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {groupedList.map(order => (
-                                        <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-4 font-medium text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</td>
-                                            <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.userId]?.address || 'N/A'}</td>
-                                            <td className="px-4 py-4">
-                                                <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
-                                                    <FaPhoneAlt size={12} /> {order.mobile}
-                                                </a>
-                                            </td>
-                                            <td className="px-4 py-4">
-                                                <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
-                                                    Process
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
+        <>
+            <SEO
+                title="Vendor Dashboard – Trade2Cart"
+                description="Manage your assigned scrap pickup orders, view customer details, and process payments."
+            />
+            <div className="min-h-screen bg-gray-100">
+                <main className="p-4 md:p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={groupedList.length} color="bg-blue-500" />
+                        <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value="0" color="bg-green-500" />
+                        <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value="₹0" color="bg-purple-500" />
                     </div>
-                </div>
-            </main>
 
-            {otpModalOrder && <OtpModal order={otpModalOrder} onClose={() => setOtpModalOrder(null)} onVerify={handleProcessOrder} />}
-            {showProfileModal && <ProfileModal vendor={vendor} onClose={() => setShowProfileModal(false)} />}
-        </div>
+                    <div className="bg-white p-4 rounded-xl shadow-md">
+                        <h2 className="text-lg font-bold text-gray-800 mb-4">My Assigned Orders</h2>
+                        <div className="overflow-x-auto">
+                            {groupedList.length === 0 ? (
+                                <p className="text-center text-gray-500 py-8">No new orders assigned. Check back later!</p>
+                            ) : (
+                                <table className="w-full text-sm text-left text-gray-600">
+                                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                                        <tr>
+                                            <th className="px-4 py-3">Customer</th>
+                                            <th className="px-4 py-3">Address</th>
+                                            <th className="px-4 py-3">Contact</th>
+                                            <th className="px-4 py-3">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {groupedList.map(order => (
+                                            <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
+                                                <td className="px-4 py-4 font-medium text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</td>
+                                                <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.userId]?.address || 'N/A'}</td>
+                                                <td className="px-4 py-4">
+                                                    <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
+                                                        <FaPhoneAlt size={12} /> {order.mobile}
+                                                    </a>
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
+                                                        Process
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                </main>
+
+                {otpModalOrder && <OtpModal order={otpModalOrder} onClose={() => setOtpModalOrder(null)} onVerify={handleProcessOrder} />}
+                {showProfileModal && <ProfileModal vendor={vendor} onClose={() => setShowProfileModal(false)} />}
+            </div>
+        </>
     );
 };
 

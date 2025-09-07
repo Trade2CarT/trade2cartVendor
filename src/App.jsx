@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './firebase'; // Make sure this path is correct
+import { auth } from './firebase';
+
+// --- Import Components ---
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 // --- Import Pages ---
 import LoginPage from './pages/LoginPage';
@@ -21,17 +25,15 @@ const Spinner = () => (
 );
 
 // --- Protected Routes (For logged-in vendors) ---
-const ProtectedRoute = () => {
+const ProtectedRoute = ({ handleSignOut }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // onAuthStateChanged returns an unsubscribe function
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setIsAuthenticated(!!user);
             setLoading(false);
         });
-        // Cleanup subscription on unmount
         return () => unsubscribe();
     }, []);
 
@@ -39,7 +41,17 @@ const ProtectedRoute = () => {
         return <Spinner />;
     }
 
-    return isAuthenticated ? <Outlet /> : <Navigate to="/" replace />;
+    return isAuthenticated ? (
+        <div className="flex flex-col min-h-screen">
+            <Header handleSignOut={handleSignOut} />
+            <main className="flex-grow">
+                <Outlet />
+            </main>
+            <Footer />
+        </div>
+    ) : (
+        <Navigate to="/" replace />
+    );
 };
 
 
@@ -50,7 +62,6 @@ function App() {
         signOut(auth)
             .then(() => {
                 toast.success("Signed out successfully!");
-                // The onAuthStateChanged listener will handle navigation automatically
             })
             .catch((error) => {
                 toast.error("Failed to sign out.");
@@ -68,8 +79,8 @@ function App() {
                     <Route path="/otp" element={<OtpPage />} />
 
                     {/* Protected Routes */}
-                    <Route element={<ProtectedRoute />}>
-                        <Route path="/dashboard" element={<Dashboard handleSignOut={handleSignOut} />} />
+                    <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
+                        <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/register" element={<RegisterForm />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                     </Route>
