@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
+import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+
 
 // --- Import Components ---
 import Header from './components/Header';
 import Footer from './components/Footer';
+import Loader from './components/Loader';
 
 // --- Import Pages ---
 import LoginPage from './pages/LoginPage';
@@ -14,36 +17,56 @@ import OtpPage from './pages/OtpPage';
 import Dashboard from './pages/Dashboard';
 import RegisterForm from './pages/RegisterForm';
 import Process from './pages/Process';
-
-
-// --- Loading Spinner Component ---
-const Spinner = () => (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-blue-600"></div>
-        <p className="ml-4 text-lg text-gray-700">Loading...</p>
-    </div>
-);
+import AccountPage from './pages/AccountPage';
 
 // --- Protected Routes (For logged-in vendors) ---
-const ProtectedRoute = ({ handleSignOut }) => {
+const ProtectedRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [vendor, setVendor] = useState(null);
+
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setIsAuthenticated(!!user);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setIsAuthenticated(true);
+                // Fetch vendor data to pass to header
+                try {
+                    const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(user.phoneNumber));
+                    const snapshot = await get(vendorQuery);
+                    if (snapshot.exists()) {
+                        setVendor(Object.values(snapshot.val())[0]);
+                    }
+                } catch (e) {
+                    console.error("Could not fetch vendor data for header");
+                }
+            } else {
+                setIsAuthenticated(false);
+            }
             setLoading(false);
         });
         return () => unsubscribe();
     }, []);
 
+    const handleSignOut = () => {
+        signOut(auth)
+            .then(() => {
+                toast.success("Signed out successfully!");
+            })
+            .catch((error) => {
+                toast.error("Failed to sign out.");
+                console.error("Sign Out Error:", error);
+            });
+    };
+
+
     if (loading) {
-        return <Spinner />;
+        return <Loader fullscreen />;
     }
 
     return isAuthenticated ? (
-        <div className="flex flex-col min-h-screen">
-            <Header handleSignOut={handleSignOut} />
+        <div className="flex flex-col min-h-screen bg-gray-50">
+            <Header vendor={vendor} />
             <main className="flex-grow">
                 <Outlet />
             </main>
@@ -57,18 +80,6 @@ const ProtectedRoute = ({ handleSignOut }) => {
 
 // --- Main App Component ---
 function App() {
-
-    const handleSignOut = () => {
-        signOut(auth)
-            .then(() => {
-                toast.success("Signed out successfully!");
-            })
-            .catch((error) => {
-                toast.error("Failed to sign out.");
-                console.error("Sign Out Error:", error);
-            });
-    };
-
     return (
         <>
             <Toaster position="top-center" reverseOrder={false} />
@@ -77,16 +88,18 @@ function App() {
                     {/* Public Routes */}
                     <Route path="/" element={<LoginPage />} />
                     <Route path="/otp" element={<OtpPage />} />
+                    <Route path="/register" element={<RegisterForm />} />
+
 
                     {/* Protected Routes */}
-                    <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
+                    <Route element={<ProtectedRoute />}>
                         <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/register" element={<RegisterForm />} />
+                        <Route path="/account" element={<AccountPage />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                     </Route>
 
                     {/* Fallback Redirect */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
             </Router>
         </>
