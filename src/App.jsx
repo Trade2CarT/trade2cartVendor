@@ -1,24 +1,24 @@
 import React, { useState, useEffect } from 'react';
-// This change from BrowserRouter to HashRouter will fix the page reload issue on any server.
-import { HashRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth, db } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '/src/firebase';
 import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 
 
 // --- Import Components ---
-import Header from './components/Header';
-import Footer from './components/Footer';
-import Loader from './Loader';
+import Header from '/src/components/Header';
+import Footer from '/src/components/Footer';
+// import Loader from '/src/components/Loader';
 
 // --- Import Pages ---
-import LoginPage from './pages/LoginPage';
-import OtpPage from './pages/OtpPage';
-import Dashboard from './pages/Dashboard';
-import RegisterForm from './pages/RegisterForm';
-import Process from './pages/Process';
-import AccountPage from './pages/AccountPage';
+import LoginPage from '/src/pages/LoginPage';
+import OtpPage from '/src/pages/OtpPage';
+import Dashboard from '/src/pages/Dashboard';
+import RegisterForm from '/src/pages/RegisterForm';
+import Process from '/src/pages/Process';
+import AccountPage from '/src/pages/AccountPage';
+import Loader from './pages/Loader';
 
 // --- Protected Routes (For logged-in vendors) ---
 const ProtectedRoute = () => {
@@ -31,7 +31,6 @@ const ProtectedRoute = () => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setIsAuthenticated(true);
-                // Fetch vendor data to pass to header
                 try {
                     const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(user.phoneNumber));
                     const snapshot = await get(vendorQuery);
@@ -39,7 +38,7 @@ const ProtectedRoute = () => {
                         setVendor(Object.values(snapshot.val())[0]);
                     }
                 } catch (e) {
-                    console.error("Could not fetch vendor data for header");
+                    console.error("Could not fetch vendor data for header", e);
                 }
             } else {
                 setIsAuthenticated(false);
@@ -88,7 +87,7 @@ function App() {
                     </Route>
 
                     {/* Fallback Redirect */}
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
         </>
