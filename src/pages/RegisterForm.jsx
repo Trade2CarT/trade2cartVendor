@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref as dbRef, set, get } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '/src/firebase';
-import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle } from 'react-icons/fa';
-// import Loader from '/src/components/Loader';
-import SEO from '/src/components/SEO';
-import Loader from './Loader';
+import { auth, db, storage } from '../firebase';
+import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle, FaCamera } from 'react-icons/fa';
+import Loader from '../components/Loader';
+import SEO from '../components/SEO';
 
 // --- Reusable File Input Component with Validation ---
 const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
@@ -41,28 +40,28 @@ const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength,
     </div>
 );
 
-const LoaderOverlay = () => (
-    <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-2xl z-10">
+const LoaderOverlay = ({ text }) => (
+    <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-2xl z-10 transition-opacity duration-300">
         <Loader />
+        <p className="mt-4 text-gray-700 font-semibold text-center px-4">{text}</p>
     </div>
 );
 
 const RegisterForm = () => {
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({ name: '', location: '', address: '', aadhaar: '', pan: '', license: '' });
-    const [files, setFiles] = useState({ profilePhoto: null, aadhaarPhoto: null, panPhoto: null, licensePhoto: null });
-    const [formErrors, setFormErrors] = useState({});
-    const [locations, setLocations] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [isFetching, setIsFetching] = useState(true);
+    const [formData, setFormData] = React.useState({ name: '', location: '', address: '', aadhaar: '', pan: '', license: '' });
+    const [files, setFiles] = React.useState({ profilePhoto: null, aadhaarPhoto: null, panPhoto: null, licensePhoto: null });
+    const [formErrors, setFormErrors] = React.useState({});
+    const [locations, setLocations] = React.useState([]);
+    const [loading, setLoading] = React.useState(false);
+    const [isFetching, setIsFetching] = React.useState(true);
+    const [loaderText, setLoaderText] = React.useState('');
 
-    // --- Fetch locations from DB on component mount ---
-    useEffect(() => {
+    React.useEffect(() => {
         const fetchLocations = async () => {
             setIsFetching(true);
             try {
-                // *** FIX: Changed 'locations' to 'location' to match your Firebase rules ***
-                const locationsRef = dbRef(db, 'location');
+                const locationsRef = dbRef(db, 'locations');
                 const snapshot = await get(locationsRef);
                 if (snapshot.exists()) {
                     const locationsArray = snapshot.val();
@@ -71,12 +70,10 @@ const RegisterForm = () => {
                         setFormData(prev => ({ ...prev, location: locationsArray[0] }));
                     }
                 } else {
-                    toast.error("Could not fetch locations. Please add them to the database.");
-                    setLocations([]);
+                    toast.error("Could not fetch locations.");
                 }
             } catch (error) {
                 toast.error("Error fetching locations.");
-                console.error("Error fetching locations:", error);
             } finally {
                 setIsFetching(false);
             }
@@ -84,65 +81,38 @@ const RegisterForm = () => {
         fetchLocations();
     }, []);
 
-    // --- Validation Logic ---
     const validateField = (name, value) => {
         let error = '';
         switch (name) {
-            case 'aadhaar':
-                if (!/^\d{12}$/.test(value)) error = 'Aadhaar must be 12 digits.';
-                break;
-            case 'pan':
-                if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value)) error = 'Invalid PAN format (e.g., ABCDE1234F).';
-                break;
-            case 'license':
-                if (!/^[A-Z]{2}[ -]?[0-9]{2}[ -]?(?:[0-9]{4})?[0-9]{7}$/.test(value)) error = 'Invalid Driving License format.';
-                break;
-            default:
-                break;
+            case 'aadhaar': if (!/^\d{12}$/.test(value)) error = 'Aadhaar must be 12 digits.'; break;
+            case 'pan': if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value)) error = 'Invalid PAN format (e.g., ABCDE1234F).'; break;
+            case 'license': if (!/^[A-Z]{2}[ -]?[0-9]{2}[ -]?(?:[0-9]{4})?[0-9]{7}$/.test(value)) error = 'Invalid Driving License format.'; break;
+            default: break;
         }
         return error;
     };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        let finalValue = value;
-        if (name === 'pan') finalValue = value.toUpperCase();
-
+        let finalValue = name === 'pan' ? value.toUpperCase() : value;
         setFormData(prev => ({ ...prev, [name]: finalValue }));
-        const error = validateField(name, finalValue);
-        setFormErrors(prev => ({ ...prev, [name]: error }));
+        setFormErrors(prev => ({ ...prev, [name]: validateField(name, finalValue) }));
     };
 
     const handleFileChange = (e, key) => {
         const file = e.target.files[0];
-        const MAX_SIZE = 250 * 1024; // 250KB
-        let error = '';
-
         if (!file) return;
-
-        // File Size Check
-        if (file.size > MAX_SIZE) {
-            error = `File is too large (max 250KB).`;
-        }
-
-        // File Type Check
-        if (!error) {
-            if (key === 'profilePhoto') {
-                if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-                    error = 'Only JPG, JPEG, or PNG images are allowed.';
-                }
-            } else {
-                if (!['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)) {
-                    error = 'Only JPG, PNG, or PDF files are allowed.';
-                }
-            }
-        }
+        const MAX_SIZE = 250 * 1024;
+        let error = '';
+        if (file.size > MAX_SIZE) error = `File is too large (max 250KB).`;
+        else if (key === 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) error = 'Only JPG, JPEG, or PNG images are allowed.';
+        else if (key !== 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)) error = 'Only JPG, PNG, or PDF files are allowed.';
 
         if (error) {
             toast.error(error);
             setFormErrors(prev => ({ ...prev, [key]: error }));
             setFiles(prev => ({ ...prev, [key]: null }));
-            e.target.value = null; // Reset the file input
+            e.target.value = null;
         } else {
             setFiles(prev => ({ ...prev, [key]: file }));
             setFormErrors(prev => ({ ...prev, [key]: '' }));
@@ -163,41 +133,49 @@ const RegisterForm = () => {
             toast.error("Authentication error. Please log in again.");
             return navigate('/');
         }
-        // Final validation check
-        const currentErrors = {};
-        Object.keys(formData).forEach(name => {
-            const error = validateField(name, formData[name]);
-            if (error) currentErrors[name] = error;
-        });
-
-        if (Object.values(currentErrors).some(e => e) || Object.values(formErrors).some(e => e)) {
-            return toast.error("Please fix the errors before submitting.");
-        }
-
-        if (Object.values(files).some(f => f === null)) {
-            return toast.error("Please upload all required documents.");
+        if (Object.values(formErrors).some(e => e) || Object.values(files).some(f => f === null)) {
+            return toast.error("Please fix all errors and upload all required documents.");
         }
 
         setLoading(true);
+        const filesToUpload = [
+            { key: 'profilePhoto', file: files.profilePhoto, name: 'Profile Photo' },
+            { key: 'aadhaarPhoto', file: files.aadhaarPhoto, name: 'Aadhaar Document' },
+            { key: 'panPhoto', file: files.panPhoto, name: 'PAN Document' },
+            { key: 'licensePhoto', file: files.licensePhoto, name: 'License Document' },
+        ];
+        const uploadedUrls = {};
+
         try {
-            const getFileExtension = (fileName) => fileName.split('.').pop();
+            for (let i = 0; i < filesToUpload.length; i++) {
+                const item = filesToUpload[i];
+                setLoaderText(`Uploading ${item.name} (${i + 1} of ${filesToUpload.length})...`);
+                const getFileExtension = (fileName) => fileName.split('.').pop();
+                const url = await uploadFile(item.file, `vendors/${user.uid}/${item.key}.${getFileExtension(item.file.name)}`);
+                uploadedUrls[item.key] = url;
+            }
 
-            const [profilePhotoURL, aadhaarPhotoURL, panPhotoURL, licensePhotoURL] = await Promise.all([
-                uploadFile(files.profilePhoto, `vendors/${user.uid}/profile.${getFileExtension(files.profilePhoto.name)}`),
-                uploadFile(files.aadhaarPhoto, `vendors/${user.uid}/aadhaar.${getFileExtension(files.aadhaarPhoto.name)}`),
-                uploadFile(files.panPhoto, `vendors/${user.uid}/pan.${getFileExtension(files.panPhoto.name)}`),
-                uploadFile(files.licensePhoto, `vendors/${user.uid}/license.${getFileExtension(files.licensePhoto.name)}`),
-            ]);
+            setLoaderText("Finalizing registration...");
 
-            const vendorData = { ...formData, uid: user.uid, phone: user.phoneNumber, status: 'pending', createdAt: new Date().toISOString(), profilePhotoURL, aadhaarPhotoURL, panPhotoURL, licensePhotoURL };
+            const vendorData = {
+                ...formData,
+                uid: user.uid,
+                phone: user.phoneNumber,
+                status: 'pending',
+                createdAt: new Date().toISOString(),
+                profilePhotoURL: uploadedUrls.profilePhoto,
+                aadhaarPhotoURL: uploadedUrls.aadhaarPhoto,
+                panPhotoURL: uploadedUrls.panPhoto,
+                licensePhotoURL: uploadedUrls.licensePhoto,
+            };
             await set(dbRef(db, `vendors/${user.uid}`), vendorData);
             toast.success('Registration submitted for verification!');
             navigate('/dashboard');
         } catch (error) {
-            console.error("Registration Error:", error);
             toast.error("Registration failed. Please try again.");
         } finally {
             setLoading(false);
+            setLoaderText('');
         }
     };
 
@@ -207,23 +185,22 @@ const RegisterForm = () => {
 
     return (
         <>
-            <SEO
-                title="Join Trade2Cart as Vendor"
-                description="Register as a vendor with Trade2Cart and receive free pickup leads from users. Connect directly with customers. Free vendor onboarding for first 6 months."
-            />
+            <SEO title="Join Trade2Cart as Vendor" description="Register as a vendor with Trade2Cart and receive free pickup leads." />
             <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
                 <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl relative">
-                    {loading && <LoaderOverlay />}
+                    {loading && <LoaderOverlay text={loaderText} />}
                     <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">Become a Partner</h2>
                     <p className="text-center text-gray-500 mb-8">Provide your details for verification.</p>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="flex flex-col items-center">
-                            <label htmlFor="profilePhoto" className="cursor-pointer">
+                            <label htmlFor="profilePhoto" className="cursor-pointer relative">
                                 <img src={files.profilePhoto ? URL.createObjectURL(files.profilePhoto) : `https://ui-avatars.com/api/?name=${formData.name || 'P'}&background=0D8ABC&color=fff&size=96`} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" />
+                                <div className="absolute bottom-0 right-0 bg-blue-600 p-2 rounded-full text-white hover:bg-blue-700 transition-colors">
+                                    <FaCamera />
+                                </div>
                             </label>
                             <input id="profilePhoto" type="file" className="hidden" accept="image/png, image/jpeg, image/jpg" onChange={(e) => handleFileChange(e, 'profilePhoto')} />
-                            <p className="text-sm text-gray-500 mt-2">Tap to upload profile photo</p>
-                            {formErrors.profilePhoto && <p className="text-xs text-red-600 mt-1">{formErrors.profilePhoto}</p>}
+                            {formErrors.profilePhoto && <p className="text-xs text-red-600 mt-2">{formErrors.profilePhoto}</p>}
                         </div>
 
                         <TextInput name="name" placeholder="Full Name" value={formData.name} onChange={handleInputChange} icon={<FaUser />} />
