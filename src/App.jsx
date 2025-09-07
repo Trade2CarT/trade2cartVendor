@@ -3,25 +3,23 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
-import { auth, db } from './firebase';
+import { auth, db } from './firebase.js';
 
 // --- Import Components ---
-import Header from './components/Header';
-import Footer from './components/Footer';
-// import Loader from './components/Loader';
-
+import Header from './components/Header.jsx';
+import Footer from './components/Footer.jsx';
+// import Loader from './components/Loader.jsx';
 
 // --- Import Pages ---
-import LoginPage from './pages/LoginPage';
-import OtpPage from './pages/OtpPage';
-import Dashboard from './pages/Dashboard';
-import RegisterForm from './pages/RegisterForm';
-import Process from './pages/Process';
-import AccountPage from './pages/AccountPage';
+import LoginPage from './pages/LoginPage.jsx';
+import OtpPage from './pages/OtpPage.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import RegisterForm from './pages/RegisterForm.jsx';
+import Process from './pages/Process.jsx';
+import AccountPage from './pages/AccountPage.jsx';
 import Loader from './pages/Loader';
 
 // --- Auth State Checker ---
-// This component determines where to send the user based on their login and registration status.
 const AuthChecker = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -57,7 +55,7 @@ const AuthChecker = () => {
 
 
 // --- Route Wrappers ---
-const ProtectedRoute = ({ handleSignOut }) => {
+const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -73,7 +71,12 @@ const ProtectedRoute = ({ handleSignOut }) => {
         return <Loader fullscreen />;
     }
 
-    return isAuthenticated ? (
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+
+    // Conditionally render the layout
+    return hasLayout ? (
         <div className="flex flex-col min-h-screen">
             <Header handleSignOut={handleSignOut} />
             <main className="flex-grow">
@@ -82,7 +85,7 @@ const ProtectedRoute = ({ handleSignOut }) => {
             <Footer />
         </div>
     ) : (
-        <Navigate to="/login" replace />
+        <Outlet />
     );
 };
 
@@ -125,13 +128,18 @@ function App() {
                         <Route path="/otp" element={<OtpPage />} />
                     </Route>
 
-                    {/* Protected Routes: Only accessible when logged in */}
+                    {/* Protected Routes */}
                     <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/register" element={<RegisterForm />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
+
+                    {/* Registration route without the main layout */}
+                    <Route element={<ProtectedRoute hasLayout={false} />}>
+                        <Route path="/register" element={<RegisterForm />} />
+                    </Route>
+
                 </Routes>
             </Router>
         </>
