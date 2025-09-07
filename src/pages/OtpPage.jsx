@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
-import { auth, db } from '../firebase';
-import logo from '../assets/images/logo.PNG';
+import { auth, db } from '/src/firebase';
+import logo from '/src/assets/images/logo.PNG';
+import Loader from '/src/components/Loader';
+// import SEO from '/src/components/SEO';
 
 const OtpPage = () => {
     const [otp, setOtp] = useState(new Array(6).fill(''));
@@ -47,7 +49,6 @@ const OtpPage = () => {
             const confirmationResult = window.confirmationResult;
             if (!confirmationResult) {
                 toast.error("Session expired. Please try again.");
-                setLoading(false);
                 navigate('/');
                 return;
             }
@@ -66,57 +67,66 @@ const OtpPage = () => {
             }
 
         } catch (error) {
-            setLoading(false);
             console.error('OTP Page Error:', error);
-
             if (error.code === 'auth/invalid-verification-code') {
                 toast.error('Incorrect OTP. Please try again.');
-            } else if (error.code === 'permission-denied') {
-                toast.error('Database permission error. Please check your rules.');
             } else {
                 toast.error('An unexpected error occurred. Please try again.');
             }
+        } finally {
+            setLoading(false);
         }
     };
 
+    if (loading) {
+        return <Loader
+            fullscreen />;
+    }
+
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-            <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg text-center">
-                <img src={logo} alt="Trade2Cart Logo" className="w-20 h-20 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-800">Verify Your Number</h2>
-                <p className="text-gray-500 mt-2 mb-6">Enter the 6-digit OTP sent to +91 {phone}.</p>
+        <>
+            <SEO
+                title="Verify OTP - Trade2Cart Vendor"
+                description="Enter the OTP to securely log in to your vendor account."
+            />
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+                <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg text-center">
+                    <img src={logo} alt="Trade2Cart Logo" className="w-20 h-20 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-800">Verify Your Number</h2>
+                    <p className="text-gray-500 mt-2 mb-6">Enter the 6-digit OTP sent to +91 {phone}.</p>
 
-                <div className="flex justify-center gap-2 mb-6">
-                    {otp.map((data, index) => (
-                        <input
-                            key={index}
-                            ref={el => inputsRef.current[index] = el}
-                            type="text"
-                            maxLength="1"
-                            className="w-12 h-14 text-center text-2xl font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            value={data}
-                            onChange={(e) => handleChange(e, index)}
-                            onKeyDown={(e) => handleKeyDown(e, index)}
-                        />
-                    ))}
+                    <div className="flex justify-center gap-2 mb-6">
+                        {otp.map((data, index) => (
+                            <input
+                                key={index}
+                                ref={el => inputsRef.current[index] = el}
+                                type="text"
+                                maxLength="1"
+                                className="w-12 h-14 text-center text-2xl font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                value={data}
+                                onChange={(e) => handleChange(e, index)}
+                                onKeyDown={(e) => handleKeyDown(e, index)}
+                            />
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 disabled:bg-gray-400"
+                    >
+                        {loading ? 'Verifying...' : 'Verify & Continue'}
+                    </button>
+
+                    <p className="text-sm text-gray-500 mt-4">
+                        Didn't receive the code?{' '}
+                        <span className="font-semibold text-blue-600 cursor-pointer" onClick={() => navigate('/')}>
+                            Request again
+                        </span>
+                    </p>
                 </div>
-
-                <button
-                    onClick={handleSubmit}
-                    disabled={loading}
-                    className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 disabled:bg-gray-400"
-                >
-                    {loading ? 'Verifying...' : 'Verify & Continue'}
-                </button>
-
-                <p className="text-sm text-gray-500 mt-4">
-                    Didn't receive the code?{' '}
-                    <span className="font-semibold text-blue-600 cursor-pointer" onClick={() => navigate('/')}>
-                        Request again
-                    </span>
-                </p>
             </div>
-        </div>
+        </>
     );
 };
 
