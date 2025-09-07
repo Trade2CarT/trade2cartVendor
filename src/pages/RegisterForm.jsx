@@ -13,7 +13,7 @@ import Loader from './Loader';
 const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-        <label htmlFor={label} className={`w-full flex items-center gap-3 px-4 py-2 bg-white border rounded-lg cursor-pointer hover:bg-gray-50 ${error ? 'border-red-500' : 'border-gray-300'}`}>
+        <label htmlFor={label} className={`w-full flex items-center gap-3 px-4 py-2 bg-white border rounded-lg cursor-pointer hover:bg-gray-50 ${error ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'}`}>
             {icon}
             <span className={`truncate ${fileName ? 'text-gray-800' : 'text-gray-500'}`}>{fileName || 'Choose a file...'}</span>
         </label>
@@ -23,11 +23,11 @@ const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
 );
 
 // --- Reusable Text Input with Validation ---
-const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength, pattern }) => (
+const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength, pattern, type = "text" }) => (
     <div className="relative">
         {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>}
         <input
-            type="text"
+            type={type}
             name={name}
             placeholder={placeholder}
             value={value}
@@ -84,6 +84,8 @@ const RegisterForm = () => {
 
     const validateField = (name, value) => {
         let error = '';
+        if (!value) return "This field is required.";
+
         switch (name) {
             case 'aadhaar': if (!/^\d{12}$/.test(value)) error = 'Aadhaar must be 12 digits.'; break;
             case 'pan': if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(value)) error = 'Invalid PAN format (e.g., ABCDE1234F).'; break;
@@ -102,9 +104,15 @@ const RegisterForm = () => {
 
     const handleFileChange = (e, key) => {
         const file = e.target.files[0];
-        if (!file) return;
         const MAX_SIZE = 250 * 1024;
         let error = '';
+
+        if (!file) {
+            setFiles(prev => ({ ...prev, [key]: null }));
+            setFormErrors(prev => ({ ...prev, [key]: "This file is required." }));
+            return;
+        };
+
         if (file.size > MAX_SIZE) error = `File is too large (max 250KB).`;
         else if (key === 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) error = 'Only JPG, JPEG, or PNG images are allowed.';
         else if (key !== 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)) error = 'Only JPG, PNG, or PDF files are allowed.';
@@ -120,22 +128,43 @@ const RegisterForm = () => {
         }
     };
 
-    const uploadFile = async (file, path) => {
-        if (!file) return null;
-        const fileRef = storageRef(storage, path);
-        await uploadBytes(fileRef, file);
-        return await getDownloadURL(fileRef);
+    const validateForm = () => {
+        const newErrors = {};
+        let isValid = true;
+
+        // Validate text inputs
+        for (const key in formData) {
+            const error = validateField(key, formData[key]);
+            if (error) {
+                newErrors[key] = error;
+                isValid = false;
+            }
+        }
+
+        // Validate file inputs
+        for (const key in files) {
+            if (!files[key]) {
+                newErrors[key] = "This file is required.";
+                isValid = false;
+            }
+        }
+
+        setFormErrors(newErrors);
+        return isValid;
     };
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!validateForm()) {
+            return toast.error("Please fill all required fields correctly.");
+        }
+
         const user = auth.currentUser;
         if (!user) {
             toast.error("Authentication error. Please log in again.");
             return navigate('/');
-        }
-        if (Object.values(formErrors).some(e => e) || Object.values(files).some(f => f === null)) {
-            return toast.error("Please fix all errors and upload all required documents.");
         }
 
         setLoading(true);
@@ -192,7 +221,7 @@ const RegisterForm = () => {
                     {loading && <LoaderOverlay text={loaderText} />}
                     <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">Become a Partner</h2>
                     <p className="text-center text-gray-500 mb-8">Provide your details for verification.</p>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                         <div className="flex flex-col items-center">
                             <label htmlFor="profilePhoto" className="cursor-pointer relative">
                                 <img src={files.profilePhoto ? URL.createObjectURL(files.profilePhoto) : `https://ui-avatars.com/api/?name=${formData.name || 'P'}&background=0D8ABC&color=fff&size=96`} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" />
@@ -204,11 +233,12 @@ const RegisterForm = () => {
                             {formErrors.profilePhoto && <p className="text-xs text-red-600 mt-2">{formErrors.profilePhoto}</p>}
                         </div>
 
-                        <TextInput name="name" placeholder="Full Name" value={formData.name} onChange={handleInputChange} icon={<FaUser />} />
+                        <TextInput name="name" placeholder="Full Name" value={formData.name} onChange={handleInputChange} error={formErrors.name} icon={<FaUser />} />
 
                         <div className="relative">
                             <FaMapMarkerAlt className="absolute left-3 top-4 text-gray-400" />
-                            <textarea name="address" placeholder="Full Address" value={formData.address} onChange={handleInputChange} className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" rows="2" required />
+                            <textarea name="address" placeholder="Full Address" value={formData.address} onChange={handleInputChange} className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 ${formErrors.address ? 'border-red-500 ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`} rows="2" required />
+                            {formErrors.address && <p className="text-xs text-red-600 mt-1 pl-1">{formErrors.address}</p>}
                         </div>
 
                         <div className="relative">
