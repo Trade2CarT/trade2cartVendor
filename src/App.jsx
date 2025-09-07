@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+// This change from BrowserRouter to HashRouter will fix the page reload issue on any server.
+import { HashRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
@@ -9,7 +10,7 @@ import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 // --- Import Components ---
 import Header from './components/Header';
 import Footer from './components/Footer';
-import Loader from './components/Loader';
+import Loader from './Loader';
 
 // --- Import Pages ---
 import LoginPage from './pages/LoginPage';

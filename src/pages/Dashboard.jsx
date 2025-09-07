@@ -5,8 +5,9 @@ import { db, auth } from '../firebase';
 import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { onAuthStateChanged } from 'firebase/auth';
 import { FaBoxOpen, FaRupeeSign, FaTasks, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
-import Loader from '../components/Loader';
+
 import SEO from '../components/SEO';
+import Loader from './Loader';
 
 
 // --- Helper Function ---

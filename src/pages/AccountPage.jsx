@@ -5,8 +5,9 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 import { auth, db } from '../firebase';
 import SEO from '../components/SEO';
-import Loader from '../components/Loader';
+
 import { FaSignOutAlt, FaUserCircle, FaShieldAlt, FaFileContract, FaChevronRight } from 'react-icons/fa';
+import Loader from './Loader';
 
 const AccountPage = () => {
     const navigate = useNavigate();

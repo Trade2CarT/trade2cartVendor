@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
 import { db } from '../firebase';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
-import Loader from '../components/Loader';
+import Loader from './Loader';
 import SEO from '../components/SEO';
 
 // --- Main Process Component ---
