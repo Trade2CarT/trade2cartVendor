@@ -6,10 +6,12 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { signOut } from 'firebase/auth';
 import { auth, db, storage } from '../firebase';
 import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle, FaCamera, FaSignOutAlt } from 'react-icons/fa';
-// import Loader from '../components/Loader';
 import SEO from '../components/SEO';
 import logo from '../assets/images/logo.PNG';
 import Loader from './Loader';
+// --- NEW IMPORTS ---
+import PolicyModal from '../components/PolicyModal';
+import { TermsAndConditions, PrivacyPolicy } from '../components/Agreement';
 
 // --- Reusable File Input Component with Validation ---
 const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
@@ -61,6 +63,10 @@ const RegisterForm = () => {
     const [isFetching, setIsFetching] = React.useState(true);
     const [loaderText, setLoaderText] = React.useState('');
 
+    // --- ADDED STATE FOR MODAL AND CHECKBOX ---
+    const [agreedToTerms, setAgreedToTerms] = React.useState(false);
+    const [modalContent, setModalContent] = React.useState(null);
+
     React.useEffect(() => {
         const fetchLocations = async () => {
             setIsFetching(true);
@@ -89,7 +95,6 @@ const RegisterForm = () => {
         try {
             await signOut(auth);
             toast.success("You have been signed out.");
-            // The AuthChecker in App.jsx will automatically navigate to /login
         } catch (error) {
             toast.error("Failed to sign out.");
         }
@@ -164,6 +169,11 @@ const RegisterForm = () => {
                 isValid = false;
             }
         }
+        // --- ADDED VALIDATION LOGIC ---
+        if (!agreedToTerms) {
+            newErrors.agreedToTerms = "You must agree to the terms and privacy policy.";
+            isValid = false;
+        }
         setFormErrors(newErrors);
         return isValid;
     };
@@ -171,7 +181,7 @@ const RegisterForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) {
-            return toast.error("Please fill all required fields correctly.");
+            return toast.error("Please fill all required fields and agree to the terms.");
         }
         const user = auth.currentUser;
         if (!user) {
@@ -179,6 +189,11 @@ const RegisterForm = () => {
             return navigate('/');
         }
         setLoading(true);
+        const uploadFile = async (file, path) => {
+            const fileRef = storageRef(storage, path);
+            await uploadBytes(fileRef, file);
+            return await getDownloadURL(fileRef);
+        };
         const filesToUpload = [
             { key: 'profilePhoto', file: files.profilePhoto, name: 'Profile Photo' },
             { key: 'aadhaarPhoto', file: files.aadhaarPhoto, name: 'Aadhaar Document' },
@@ -219,7 +234,6 @@ const RegisterForm = () => {
         <>
             <SEO title="Join Trade2Cart as Vendor" description="Register as a vendor with Trade2Cart and receive free pickup leads." />
             <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-                {/* Simple Header for Registration Page */}
                 <div className="w-full max-w-lg mb-4 flex justify-between items-center">
                     <img src={logo} alt="Trade2Cart Logo" className="h-10" />
                     <button onClick={handleSignOut} className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors">
@@ -275,15 +289,44 @@ const RegisterForm = () => {
                             <FileInput label="License Photo" icon={<FaFileUpload className="text-yellow-500" />} onChange={(e) => handleFileChange(e, 'licensePhoto')} fileName={files.licensePhoto?.name} error={formErrors.licensePhoto} accept="image/png, image/jpeg, application/pdf" />
                         </div>
 
+                        {/* --- ADDED AGREEMENT CHECKBOX --- */}
+                        <div className="pt-2">
+                            <label className="flex items-start gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={agreedToTerms}
+                                    onChange={(e) => {
+                                        setAgreedToTerms(e.target.checked);
+                                        if (formErrors.agreedToTerms) {
+                                            setFormErrors(prev => ({ ...prev, agreedToTerms: '' }));
+                                        }
+                                    }}
+                                    className="h-5 w-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                                />
+                                <span className="text-sm text-gray-600">
+                                    I have read and agree to the
+                                    <button type="button" onClick={() => setModalContent('terms')} className="text-blue-600 hover:underline font-semibold mx-1 p-0 bg-transparent border-none">Terms & Conditions</button>
+                                    and
+                                    <button type="button" onClick={() => setModalContent('privacy')} className="text-blue-600 hover:underline font-semibold ml-1 p-0 bg-transparent border-none">Privacy Policy</button>.
+                                </span>
+                            </label>
+                            {formErrors.agreedToTerms && <p className="text-xs text-red-600 mt-1">{formErrors.agreedToTerms}</p>}
+                        </div>
+
                         <button type="submit" disabled={loading || isFetching} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed">
                             {loading ? 'Submitting...' : 'Submit for Verification'}
                         </button>
                     </form>
                 </div>
             </div>
+
+            {/* --- ADDED MODAL RENDER LOGIC --- */}
+            <PolicyModal isOpen={!!modalContent} onClose={() => setModalContent(null)}>
+                {modalContent === 'terms' && <TermsAndConditions />}
+                {modalContent === 'privacy' && <PrivacyPolicy />}
+            </PolicyModal>
         </>
     );
 };
 
 export default RegisterForm;
-
