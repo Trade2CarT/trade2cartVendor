@@ -71,7 +71,8 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
     );
 };
 
-const AssignedOrders = ({ assignedOrders, usersMap }) => {
+
+const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
@@ -92,15 +93,7 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                // Assuming the 'order' object from 'assignments' has the 'products' field
-                const orderData = assignedOrders.find(o => o.id === otpModalOrder.id);
-                navigate(`/process/${orderData.id}`, {
-                    state: {
-                        vendorLocation: vendor.location,
-                        // Pass the initial products from the assignment
-                        initialProducts: orderData.productsList || [orderData.products]
-                    }
-                });
+                navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
             } else {
                 toast.error("Invalid OTP. Please check again.");
             }
@@ -111,15 +104,33 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
         }
     };
 
+    // --- NEW: Robust function to get the estimated amount ---
+    const getEstimatedAmount = (order) => {
+        // 1. Check for a 'total' field on the main order object first.
+        if (order.total && parseFloat(order.total) > 0) {
+            return parseFloat(order.total);
+        }
+
+        // 2. If no 'total', calculate it from the products list.
+        let calculatedTotal = 0;
+        if (order.productsList && itemRates) {
+            order.productsList.forEach(product => {
+                const rate = itemRates[product.name] || 0;
+                const weight = parseFloat(product.weight) || 0;
+                calculatedTotal += rate * weight;
+            });
+        }
+        return calculatedTotal;
+    };
+
+    // Group orders and their products by user
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
-            acc[key] = { ...order, productsList: [], total: 0 };
+            acc[key] = { ...order, productsList: [] };
         }
         if (order.products && order.products.name) {
             acc[key].productsList.push(order.products);
-            // Use the 'total' field from the assignment if it exists
-            acc[key].total += parseFloat(order.total || 0);
         }
         return acc;
     }, {});
@@ -141,7 +152,6 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                     <tbody>
                         {groupedList.map(order => (
                             <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                {/* --- UPDATED: NAME AND ADDRESS IN ONE COLUMN --- */}
                                 <td className="px-4 py-4">
                                     <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
                                     <p className="text-xs text-gray-500 mt-1 flex items-start gap-2">
@@ -153,12 +163,11 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                                     </a>
                                 </td>
 
-                                {/* --- UPDATED: USES THE 'total' FIELD FROM YOUR DATA --- */}
+                                {/* --- UPDATED: Uses the new robust function --- */}
                                 <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
-                                        {/* Use parseFloat to ensure it's a number and format to 2 decimal places */}
-                                        {parseFloat(order.total || 0).toFixed(2)}
+                                        {getEstimatedAmount(order).toFixed(2)}
                                     </div>
                                 </td>
 
