@@ -8,7 +8,7 @@ import { auth, db } from './firebase.js';
 // --- Import Components ---
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
-// import Loader from './components/Loader.jsx';
+import Loader from './pages/Loader';
 
 // --- Import Pages ---
 import LoginPage from './pages/LoginPage.jsx';
@@ -17,7 +17,6 @@ import Dashboard from './pages/Dashboard.jsx';
 import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
-import Loader from './pages/Loader';
 
 // --- Auth State Checker ---
 const AuthChecker = () => {
@@ -79,7 +78,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     return hasLayout ? (
         <div className="flex flex-col min-h-screen">
             <Header handleSignOut={handleSignOut} />
-            <main className="flex-grow">
+            <main className="flex-grow pb-20"> {/* <-- THIS LINE IS UPDATED */}
                 <Outlet />
             </main>
             <Footer />
@@ -147,4 +146,3 @@ function App() {
 }
 
 export default App;
-

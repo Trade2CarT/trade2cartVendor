@@ -4,11 +4,11 @@ import { FaThLarge, FaUserAlt } from 'react-icons/fa';
 
 const Footer = () => {
     const activeLinkStyle = {
-        color: '#2563EB', // This is Tailwind's blue-600
+        color: '#2563EB', // Tailwind's blue-600
     };
 
     return (
-        <footer className="sticky bottom-0 bg-white rounded-t-2xl shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-40">
+        <footer className="fixed bottom-0 w-full bg-white rounded-t-2xl shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-40">
             <nav className="flex justify-around items-center p-2">
                 <NavLink
                     to="/dashboard"
@@ -32,4 +32,3 @@ const Footer = () => {
 };
 
 export default Footer;
-

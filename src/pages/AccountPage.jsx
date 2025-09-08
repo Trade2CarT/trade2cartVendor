@@ -6,7 +6,6 @@ import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 import { auth, db } from '../firebase';
 import SEO from '../components/SEO';
 import Loader from './Loader';
-// --- NEW IMPORTS ---
 import PolicyModal from '../components/PolicyModal';
 import { TermsAndConditions, PrivacyPolicy } from '../components/Agreement';
 import {
@@ -21,50 +20,42 @@ import {
     FaIdCard
 } from 'react-icons/fa';
 
-// --- NEW COMPONENT for displaying profile information ---
+// A reusable component for displaying profile information cleanly
 const InfoCard = ({ icon, label, value }) => (
-    <div className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
-        <div className="text-gray-400 mt-1">{icon}</div>
+    <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+        <div className="text-gray-400 mt-1 text-lg">{icon}</div>
         <div>
-            <p className="text-xs text-gray-500 font-medium">{label}</p>
-            <p className="text-sm text-gray-800 font-semibold">{value || 'Not Provided'}</p>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{label}</p>
+            <p className="text-base text-gray-800 font-semibold break-words">{value || 'Not Provided'}</p>
         </div>
     </div>
 );
-
 
 const AccountPage = () => {
     const navigate = useNavigate();
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
-
-    // --- ADDED STATE for modals ---
     const [modalContent, setModalContent] = useState(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user && user.phoneNumber) {
                 try {
-                    // Using phone number to query for the vendor
                     const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(user.phoneNumber));
                     const snapshot = await get(vendorQuery);
-
                     if (snapshot.exists()) {
-                        // Firebase returns an object of users, so we get the first one
                         const vendorData = Object.values(snapshot.val())[0];
                         setVendor(vendorData);
                     } else {
-                        // If no vendor profile is found, redirect to registration
-                        toast.error("Profile not found. Please register.");
                         navigate('/register');
                     }
                 } catch (error) {
-                    toast.error("Could not fetch your profile.");
+                    console.error("Firebase fetch error:", error);
+                    toast.error("Could not fetch profile. Check console for details.");
                 } finally {
                     setLoading(false);
                 }
             } else {
-                // If no user is logged in, navigate to the login page
                 navigate('/');
             }
         });
@@ -84,22 +75,22 @@ const AccountPage = () => {
             <SEO title="My Account - Trade2Cart Vendor" description="Manage your vendor profile, view policies, and sign out." />
             <div className="p-4 space-y-6">
                 {/* --- Profile Header --- */}
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-4 p-4 bg-white rounded-xl shadow-md">
                     {vendor?.profilePhotoURL ? (
-                        <img src={vendor.profilePhotoURL} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md" />
+                        <img src={vendor.profilePhotoURL} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm" />
                     ) : (
-                        <FaUserCircle className="text-6xl text-gray-400" />
+                        <FaUserCircle className="text-6xl text-gray-300" />
                     )}
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">{vendor?.name}</h1>
+                        <h1 className="text-2xl font-bold text-gray-800">{vendor?.name || "Vendor"}</h1>
                         <p className="text-sm text-gray-500">{vendor?.phone}</p>
                     </div>
                 </div>
 
-                {/* --- NEW: My Profile Information Section --- */}
+                {/* --- My Profile Information Section --- */}
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">My Profile</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <h2 className="text-lg font-bold text-gray-800 mb-4 px-2">My Profile</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <InfoCard icon={<FaUser />} label="Full Name" value={vendor?.name} />
                         <InfoCard icon={<FaMapPin />} label="Registered Location" value={vendor?.location} />
                         <InfoCard icon={<FaMapMarkerAlt />} label="Full Address" value={vendor?.address} />
@@ -145,7 +136,6 @@ const AccountPage = () => {
                 </div>
             </div>
 
-            {/* --- ADDED MODAL RENDER LOGIC --- */}
             <PolicyModal isOpen={!!modalContent} onClose={() => setModalContent(null)}>
                 {modalContent === 'terms' && <TermsAndConditions />}
                 {modalContent === 'privacy' && <PrivacyPolicy />}
