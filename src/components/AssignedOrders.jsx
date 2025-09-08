@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component
+// OTP Modal Component (No changes needed here)
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -104,16 +104,14 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         }
     };
 
-    // --- NEW: Final, robust function to get the estimated amount ---
+    // --- Final function to get the estimated amount ---
     const getEstimatedAmount = (order) => {
-        // Priority 1: Check for common direct fields for the total.
-        // This is based on your Admin Panel screenshot.
+        // Priority 1: Check for a total field from the admin panel
         const directTotal = order.total || order.estAmount || order.estimatedAmount;
         if (directTotal && parseFloat(directTotal) > 0) {
             return parseFloat(directTotal);
         }
-
-        // Priority 2: Fallback to calculating from the products list.
+        // Priority 2: Fallback to calculating from the products list
         let calculatedTotal = 0;
         if (order.productsList && itemRates) {
             order.productsList.forEach(product => {
@@ -125,14 +123,12 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         return calculatedTotal;
     };
 
-    // Group orders and their products by user
+    // Group orders by user
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
-            // Include all fields from the first order encountered for that user
             acc[key] = { ...order, productsList: [] };
         }
-        // Aggregate all products from multiple assignments for the same user
         if (order.products && order.products.name) {
             acc[key].productsList.push(order.products);
         }
@@ -166,14 +162,12 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                                         <FaPhoneAlt size={10} /> {order.mobile}
                                     </a>
                                 </td>
-
                                 <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
                                         {getEstimatedAmount(order).toFixed(2)}
                                     </div>
                                 </td>
-
                                 <td className="px-4 py-4 align-top">
                                     <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
                                         Process
