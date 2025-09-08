@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component
+// OTP Modal Component (No changes needed here)
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -71,6 +71,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
     );
 };
 
+
 const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
@@ -103,7 +104,6 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         }
     };
 
-    // --- NEW: Function to calculate estimated amount ---
     const calculateEstimatedAmount = (productsList) => {
         if (!productsList || !itemRates) return 0;
         let total = 0;
@@ -120,7 +120,6 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         if (!acc[key]) {
             acc[key] = { ...order, productsList: [] };
         }
-        // Assuming order.products is an object like { name: '...', weight: '...' }
         if (order.products) {
             acc[key].productsList.push(order.products);
         }
@@ -136,8 +135,7 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                 <table className="w-full text-sm text-left text-gray-600">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
-                            <th className="px-4 py-3">Customer Info</th>
-                            <th className="px-4 py-3">Address</th>
+                            <th className="px-4 py-3">Customer Details</th>
                             <th className="px-4 py-3">Est. Amount</th>
                             <th className="px-4 py-3">Action</th>
                         </tr>
@@ -145,23 +143,24 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                     <tbody>
                         {groupedList.map(order => (
                             <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
+                                {/* --- UPDATED COLUMN --- */}
                                 <td className="px-4 py-4">
                                     <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
-                                    <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                                    <p className="text-xs text-gray-500 mt-1 flex items-start gap-2">
+                                        <FaMapPin className="flex-shrink-0 mt-0.5" />
+                                        <span>{usersMap[order.userId]?.address || 'No address provided'}</span>
+                                    </p>
+                                    <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline mt-2">
                                         <FaPhoneAlt size={10} /> {order.mobile}
                                     </a>
                                 </td>
-                                <td className="px-4 py-4 text-xs">
-                                    <FaMapPin className="inline mr-2 text-gray-400" />
-                                    {usersMap[order.userId]?.address || 'N/A'}
-                                </td>
-                                <td className="px-4 py-4 font-semibold text-gray-800">
+                                <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
                                         {calculateEstimatedAmount(order.productsList).toFixed(2)}
                                     </div>
                                 </td>
-                                <td className="px-4 py-4">
+                                <td className="px-4 py-4 align-top">
                                     <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
                                         Process
                                     </button>
