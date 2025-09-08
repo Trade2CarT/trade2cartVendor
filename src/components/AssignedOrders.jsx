@@ -71,8 +71,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
     );
 };
 
-
-const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
+const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
@@ -93,7 +92,15 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
+                // Assuming the 'order' object from 'assignments' has the 'products' field
+                const orderData = assignedOrders.find(o => o.id === otpModalOrder.id);
+                navigate(`/process/${orderData.id}`, {
+                    state: {
+                        vendorLocation: vendor.location,
+                        // Pass the initial products from the assignment
+                        initialProducts: orderData.productsList || [orderData.products]
+                    }
+                });
             } else {
                 toast.error("Invalid OTP. Please check again.");
             }
@@ -104,24 +111,15 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         }
     };
 
-    const calculateEstimatedAmount = (productsList) => {
-        if (!productsList || !itemRates) return 0;
-        let total = 0;
-        productsList.forEach(product => {
-            const rate = itemRates[product.name] || 0;
-            const weight = parseFloat(product.weight) || 0;
-            total += rate * weight;
-        });
-        return total;
-    };
-
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
-            acc[key] = { ...order, productsList: [] };
+            acc[key] = { ...order, productsList: [], total: 0 };
         }
-        if (order.products) {
+        if (order.products && order.products.name) {
             acc[key].productsList.push(order.products);
+            // Use the 'total' field from the assignment if it exists
+            acc[key].total += parseFloat(order.total || 0);
         }
         return acc;
     }, {});
@@ -143,7 +141,7 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                     <tbody>
                         {groupedList.map(order => (
                             <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                {/* --- UPDATED COLUMN --- */}
+                                {/* --- UPDATED: NAME AND ADDRESS IN ONE COLUMN --- */}
                                 <td className="px-4 py-4">
                                     <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
                                     <p className="text-xs text-gray-500 mt-1 flex items-start gap-2">
@@ -154,12 +152,16 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                                         <FaPhoneAlt size={10} /> {order.mobile}
                                     </a>
                                 </td>
+
+                                {/* --- UPDATED: USES THE 'total' FIELD FROM YOUR DATA --- */}
                                 <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
-                                        {calculateEstimatedAmount(order.productsList).toFixed(2)}
+                                        {/* Use parseFloat to ensure it's a number and format to 2 decimal places */}
+                                        {parseFloat(order.total || 0).toFixed(2)}
                                     </div>
                                 </td>
+
                                 <td className="px-4 py-4 align-top">
                                     <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
                                         Process
