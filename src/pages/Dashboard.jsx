@@ -1,22 +1,22 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { db, auth } from '../firebase';
-import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
-import { onAuthStateChanged } from 'firebase/auth';
-import { FaBoxOpen, FaRupeeSign, FaTasks, FaPhoneAlt, FaMapPin, FaTimes } from 'react-icons/fa';
-
+import { db } from '../firebase';
+import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { useVendor } from '../App';
+import { FaBoxOpen, FaRupeeSign, FaTasks } from 'react-icons/fa';
 import SEO from '../components/SEO';
 import Loader from './Loader';
+import AssignedOrders from '../components/AssignedOrders';
+import ProcessedOrders from '../components/ProcessedOrders';
 
-
-// --- Helper Function ---
+// Helper to convert Firebase object to array
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
     return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
 };
 
-// --- Reusable UI Components ---
+// Reusable StatCard Component
 const StatCard = ({ icon, title, value, color }) => (
     <div className="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
         <div className={`p-3 rounded-full ${color}`}>
@@ -29,184 +29,42 @@ const StatCard = ({ icon, title, value, color }) => (
     </div>
 );
 
-const OtpModal = ({ order, onClose, onVerify, loading }) => {
-    const [otp, setOtp] = useState(new Array(4).fill(''));
-    const inputsRef = useRef([]);
-
-    useEffect(() => {
-        inputsRef.current[0]?.focus();
-    }, []);
-
-    const handleChange = (e, index) => {
-        const { value } = e.target;
-        if (isNaN(value)) return;
-        const newOtp = [...otp];
-        newOtp[index] = value;
-        setOtp(newOtp);
-        if (value && index < 3) {
-            inputsRef.current[index + 1]?.focus();
-        }
-    };
-
-    const handleKeyDown = (e, index) => {
-        if (e.key === 'Backspace' && !otp[index] && index > 0) {
-            inputsRef.current[index - 1]?.focus();
-        }
-    };
-
-    const handleVerifyClick = () => {
-        const enteredOtp = otp.join('');
-        if (enteredOtp.length === 4) {
-            onVerify(enteredOtp);
-        } else {
-            toast.error("Please enter the 4-digit OTP.");
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center">
-                <h3 className="text-xl font-bold text-gray-800">Order Verification</h3>
-                <p className="text-gray-600 mt-2">Enter the 4-digit OTP from the customer's app to process the order.</p>
-                <div className="my-6 flex justify-center gap-3">
-                    {otp.map((digit, i) => (
-                        <input
-                            key={i}
-                            ref={el => inputsRef.current[i] = el}
-                            type="text"
-                            maxLength="1"
-                            value={digit}
-                            onChange={e => handleChange(e, i)}
-                            onKeyDown={e => handleKeyDown(e, i)}
-                            className="w-14 h-16 text-center text-3xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        />
-                    ))}
-                </div>
-                <div className="flex gap-4">
-                    <button onClick={onClose} className="w-full py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button onClick={handleVerifyClick} disabled={loading} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-400">
-                        {loading ? 'Verifying...' : 'Verify & Proceed'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-// --- Main Dashboard Component ---
+// Main Dashboard Component
 const Dashboard = () => {
     const navigate = useNavigate();
-    const [vendor, setVendor] = useState(null);
+    const vendor = useVendor(); // Get vendor data from context
     const [assignedOrders, setAssignedOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [otpModalOrder, setOtpModalOrder] = useState(null);
+    const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
-    const [verifyLoading, setVerifyLoading] = useState(false);
-
-    useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-            if (user && user.phoneNumber) {
-                try {
-                    const vendorPhone = user.phoneNumber;
-                    const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(vendorPhone));
-
-                    const snapshot = await get(vendorQuery);
-
-                    if (snapshot.exists()) {
-                        const vendorData = firebaseObjectToArray(snapshot)[0];
-                        setVendor(vendorData);
-                    } else {
-                        toast.error("Vendor profile not found. Please complete your registration.");
-                        navigate('/register');
-                    }
-                } catch (error) {
-                    console.error("Failed to fetch vendor data:", error);
-                    toast.error("Could not fetch your profile. Please try again later.");
-                } finally {
-                    setLoading(false);
-                }
-            } else {
-                toast.error("Authentication required. Please log in.");
-                navigate('/');
-                setLoading(false);
-            }
-        });
-
-        return () => unsubscribeAuth();
-    }, [navigate]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' or 'processed'
 
     useEffect(() => {
         if (!vendor) return;
 
+        // Fetch all assignments for this vendor
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
-
         const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
-            const assigned = firebaseObjectToArray(snapshot).filter(o => o.status === 'assigned');
-            setAssignedOrders(assigned);
+            const allOrders = firebaseObjectToArray(snapshot);
+            setAssignedOrders(allOrders.filter(o => o.status === 'assigned'));
+            setProcessedOrders(allOrders.filter(o => o.status === 'completed'));
+            setLoading(false);
         }, (error) => {
-            console.error("Error fetching assignments:", error);
-            toast.error("Could not load assigned orders.");
+            toast.error("Could not load orders.");
+            setLoading(false);
         });
 
-        return () => unsubscribeAssignments();
-    }, [vendor]);
-
-    useEffect(() => {
+        // Fetch all users to map user IDs to names/addresses
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
-            const usersData = snapshot.val() || {};
-            setUsersMap(usersData);
-        }, (error) => {
-            console.error("Error fetching users:", error);
-            toast.error("Could not load user data.");
+            setUsersMap(snapshot.val() || {});
         });
 
-        return () => unsubscribeUsers();
-    }, []);
-
-
-    const handleProcessOrder = async (enteredOtp) => {
-        if (!otpModalOrder || !otpModalOrder.userId) {
-            return toast.error("Cannot process order: User ID is missing.");
+        return () => {
+            unsubscribeAssignments();
+            unsubscribeUsers();
         };
-        setVerifyLoading(true);
-
-        try {
-            const userRef = ref(db, `users/${otpModalOrder.userId}`);
-            const userSnapshot = await get(userRef);
-
-            if (!userSnapshot.exists()) {
-                setVerifyLoading(false);
-                return toast.error("Customer data could not be found!");
-            }
-
-            const userData = userSnapshot.val();
-
-            if (String(userData.otp) === String(enteredOtp)) {
-                toast.success("OTP Verified!");
-                setOtpModalOrder(null);
-                navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
-            } else {
-                toast.error("Invalid OTP. Please ask the customer to check again.");
-            }
-        } catch (error) {
-            console.error("OTP Verification Error:", error);
-            toast.error("An error occurred during verification.");
-        } finally {
-            setVerifyLoading(false);
-        }
-    };
-
-    const groupedOrders = assignedOrders.reduce((acc, order) => {
-        const key = order.userId || order.mobile;
-        if (!acc[key]) {
-            acc[key] = { ...order, productsList: [], };
-        }
-        acc[key].productsList.push(order.products);
-        return acc;
-    }, {});
-    const groupedList = Object.values(groupedOrders);
+    }, [vendor]);
 
     if (loading) {
         return <Loader fullscreen />;
@@ -229,6 +87,10 @@ const Dashboard = () => {
         );
     }
 
+    // Calculate stats
+    const totalEarningsToday = processedOrders
+        .filter(o => new Date(o.timestamp).toDateString() === new Date().toDateString())
+        .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
 
     return (
         <>
@@ -238,54 +100,38 @@ const Dashboard = () => {
             />
             <main className="p-4 md:p-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={groupedList.length} color="bg-blue-500" />
-                    <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value="0" color="bg-green-500" />
-                    <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value="₹0" color="bg-purple-500" />
+                    <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={assignedOrders.length} color="bg-blue-500" />
+                    <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value={processedOrders.filter(o => new Date(o.timestamp).toDateString() === new Date().toDateString()).length} color="bg-green-500" />
+                    <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4">My Assigned Orders</h2>
-                    <div className="overflow-x-auto">
-                        {groupedList.length === 0 ? (
-                            <p className="text-center text-gray-500 py-8">No new orders assigned. Check back later!</p>
-                        ) : (
-                            <table className="w-full text-sm text-left text-gray-600">
-                                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                                    <tr>
-                                        <th className="px-4 py-3">Customer</th>
-                                        <th className="px-4 py-3">Address</th>
-                                        <th className="px-4 py-3">Contact</th>
-                                        <th className="px-4 py-3">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {groupedList.map(order => (
-                                        <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                            <td className="px-4 py-4 font-medium text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</td>
-                                            <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.userId]?.address || 'N/A'}</td>
-                                            <td className="px-4 py-4">
-                                                <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
-                                                    <FaPhoneAlt size={12} /> {order.mobile}
-                                                </a>
-                                            </td>
-                                            <td className="px-4 py-4">
-                                                <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
-                                                    Process
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
+                    {/* --- Tab Navigation --- */}
+                    <div className="flex border-b border-gray-200 mb-4">
+                        <button
+                            onClick={() => setActiveTab('assigned')}
+                            className={`px-4 py-2 font-semibold text-sm transition-colors ${activeTab === 'assigned' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                        >
+                            Assigned Orders ({assignedOrders.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('processed')}
+                            className={`px-4 py-2 font-semibold text-sm transition-colors ${activeTab === 'processed' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
+                        >
+                            Processed Orders ({processedOrders.length})
+                        </button>
                     </div>
+
+                    {/* --- Display Active Tab Content --- */}
+                    {activeTab === 'assigned' ? (
+                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} />
+                    ) : (
+                        <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
+                    )}
                 </div>
             </main>
-
-            {otpModalOrder && <OtpModal order={otpModalOrder} onClose={() => setOtpModalOrder(null)} onVerify={handleProcessOrder} loading={verifyLoading} />}
         </>
     );
 };
 
 export default Dashboard;
-
