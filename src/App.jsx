@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
 import { auth, db } from './firebase.js';
 
-// --- Import Components ---
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
 import Loader from './pages/Loader';
-
-// --- Import Pages ---
 import LoginPage from './pages/LoginPage.jsx';
 import OtpPage from './pages/OtpPage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -18,7 +15,11 @@ import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 
-// --- Auth State Checker ---
+// --- Context to centrally manage vendor data ---
+const VendorContext = createContext(null);
+export const useVendor = () => useContext(VendorContext);
+
+// --- Auth State Checker (Your original code) ---
 const AuthChecker = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -41,53 +42,61 @@ const AuthChecker = () => {
         return () => unsubscribe();
     }, []);
 
-    if (loading) {
-        return <Loader fullscreen />;
-    }
-
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
-
+    if (loading) return <Loader fullscreen />;
+    if (!user) return <Navigate to="/login" replace />;
     return isRegistered ? <Navigate to="/dashboard" replace /> : <Navigate to="/register" replace />;
 };
 
-
-// --- Route Wrappers ---
+// --- Updated ProtectedRoute to fetch data ---
 const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setIsAuthenticated(!!user);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setIsAuthenticated(true);
+                // Fetch vendor data here to make it available globally
+                try {
+                    const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(user.phoneNumber));
+                    const snapshot = await get(vendorQuery);
+                    if (snapshot.exists()) {
+                        setVendor(Object.values(snapshot.val())[0]);
+                    }
+                } catch (error) {
+                    console.error("Firebase fetch error:", error);
+                }
+            } else {
+                setIsAuthenticated(false);
+            }
             setLoading(false);
         });
         return () => unsubscribe();
     }, []);
 
-    if (loading) {
-        return <Loader fullscreen />;
-    }
+    if (loading) return <Loader fullscreen />;
+    if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    if (!isAuthenticated) {
-        return <Navigate to="/login" replace />;
-    }
-
-    // Conditionally render the layout
-    return hasLayout ? (
-        <div className="flex flex-col min-h-screen">
-            <Header handleSignOut={handleSignOut} />
-            <main className="flex-grow pb-20"> {/* <-- THIS LINE IS UPDATED */}
+    // Provide vendor data to all child components (Header, Footer, Outlet)
+    return (
+        <VendorContext.Provider value={vendor}>
+            {hasLayout ? (
+                <div className="flex flex-col min-h-screen">
+                    <Header handleSignOut={handleSignOut} />
+                    <main className="flex-grow pb-20"> {/* Padding for fixed footer */}
+                        <Outlet />
+                    </main>
+                    <Footer />
+                </div>
+            ) : (
                 <Outlet />
-            </main>
-            <Footer />
-        </div>
-    ) : (
-        <Outlet />
+            )}
+        </VendorContext.Provider>
     );
 };
 
+// --- PublicRoute (Your original code) ---
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -100,15 +109,11 @@ const PublicRoute = () => {
         return () => unsubscribe();
     }, []);
 
-    if (loading) {
-        return <Loader fullscreen />;
-    }
-
+    if (loading) return <Loader fullscreen />;
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
-
-// --- Main App Component ---
+// --- Main App Component (Your original code) ---
 function App() {
     const handleSignOut = () => {
         signOut(auth).catch(error => toast.error("Failed to sign out."));
@@ -121,24 +126,20 @@ function App() {
                 <Routes>
                     <Route path="/" element={<AuthChecker />} />
 
-                    {/* Public Routes: Only accessible when logged out */}
                     <Route element={<PublicRoute />}>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/otp" element={<OtpPage />} />
                     </Route>
 
-                    {/* Protected Routes */}
                     <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
 
-                    {/* Registration route without the main layout */}
                     <Route element={<ProtectedRoute hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                     </Route>
-
                 </Routes>
             </Router>
         </>
