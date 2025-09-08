@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (No changes needed here)
+// OTP Modal Component (This remains unchanged)
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -71,8 +71,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
     );
 };
 
-
-const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
+const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
@@ -86,9 +85,8 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         try {
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
-            if (!userSnapshot.exists()) {
-                throw new Error("Customer data could not be found!");
-            }
+            if (!userSnapshot.exists()) throw new Error("Customer data could not be found!");
+
             const userData = userSnapshot.val();
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
@@ -104,34 +102,14 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         }
     };
 
-    // --- Final function to get the estimated amount ---
-    const getEstimatedAmount = (order) => {
-        // Priority 1: Check for a total field from the admin panel
-        const directTotal = order.total || order.estAmount || order.estimatedAmount;
-        if (directTotal && parseFloat(directTotal) > 0) {
-            return parseFloat(directTotal);
-        }
-        // Priority 2: Fallback to calculating from the products list
-        let calculatedTotal = 0;
-        if (order.productsList && itemRates) {
-            order.productsList.forEach(product => {
-                const rate = itemRates[product.name] || 0;
-                const weight = parseFloat(product.weight) || 0;
-                calculatedTotal += rate * weight;
-            });
-        }
-        return calculatedTotal;
-    };
-
-    // Group orders by user
+    // Group orders for the same user into a single row
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
-            acc[key] = { ...order, productsList: [] };
+            acc[key] = { ...order, total: 0 };
         }
-        if (order.products && order.products.name) {
-            acc[key].productsList.push(order.products);
-        }
+        // Sum the total for each item assigned to the same user
+        acc[key].total += parseFloat(order.total || 0);
         return acc;
     }, {});
     const groupedList = Object.values(groupedOrders);
@@ -162,12 +140,14 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                                         <FaPhoneAlt size={10} /> {order.mobile}
                                     </a>
                                 </td>
+
                                 <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
-                                        {getEstimatedAmount(order).toFixed(2)}
+                                        {parseFloat(order.total || 0).toFixed(2)}
                                     </div>
                                 </td>
+
                                 <td className="px-4 py-4 align-top">
                                     <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
                                         Process
