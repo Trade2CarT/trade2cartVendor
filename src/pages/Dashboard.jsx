@@ -10,13 +10,11 @@ import Loader from './Loader';
 import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
 
-// Helper to convert Firebase object to array
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
     return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
 };
 
-// Reusable StatCard Component
 const StatCard = ({ icon, title, value, color }) => (
     <div className="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
         <div className={`p-3 rounded-full ${color}`}>
@@ -29,30 +27,27 @@ const StatCard = ({ icon, title, value, color }) => (
     </div>
 );
 
-// Main Dashboard Component
 const Dashboard = () => {
     const navigate = useNavigate();
-    const vendor = useVendor(); // Get vendor data from context
+    const vendor = useVendor();
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
+    const [itemRates, setItemRates] = useState({}); // <-- NEW: State for item rates
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('assigned'); // 'assigned' or 'processed'
+    const [activeTab, setActiveTab] = useState('assigned');
 
     useEffect(() => {
         if (!vendor) return;
 
-        // Fetch all assignments for this vendor
+        // Fetch assignments for this vendor
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
         const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
             const allOrders = firebaseObjectToArray(snapshot);
             setAssignedOrders(allOrders.filter(o => o.status === 'assigned'));
             setProcessedOrders(allOrders.filter(o => o.status === 'completed'));
             setLoading(false);
-        }, (error) => {
-            toast.error("Could not load orders.");
-            setLoading(false);
-        });
+        }, () => setLoading(false));
 
         // Fetch all users to map user IDs to names/addresses
         const usersRef = ref(db, 'users');
@@ -60,9 +55,23 @@ const Dashboard = () => {
             setUsersMap(snapshot.val() || {});
         });
 
+        // --- NEW: Fetch all item rates once ---
+        const itemsRef = ref(db, 'items');
+        const unsubscribeItems = onValue(itemsRef, (snapshot) => {
+            const rates = {};
+            snapshot.forEach(child => {
+                const item = child.val();
+                if (item.name && item.rate) {
+                    rates[item.name] = parseFloat(item.rate);
+                }
+            });
+            setItemRates(rates);
+        });
+
         return () => {
             unsubscribeAssignments();
             unsubscribeUsers();
+            unsubscribeItems(); // <-- NEW: Unsubscribe from items
         };
     }, [vendor]);
 
@@ -87,10 +96,11 @@ const Dashboard = () => {
         );
     }
 
-    // Calculate stats
     const totalEarningsToday = processedOrders
-        .filter(o => new Date(o.timestamp).toDateString() === new Date().toDateString())
+        .filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString())
         .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+    const completedTodayCount = processedOrders.filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString()).length;
 
     return (
         <>
@@ -99,14 +109,13 @@ const Dashboard = () => {
                 description="Manage your assigned scrap pickup orders, view customer details, and process payments."
             />
             <main className="p-4 md:p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={assignedOrders.length} color="bg-blue-500" />
-                    <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value={processedOrders.filter(o => new Date(o.timestamp).toDateString() === new Date().toDateString()).length} color="bg-green-500" />
+                    <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value={completedTodayCount} color="bg-green-500" />
                     <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    {/* --- Tab Navigation --- */}
                     <div className="flex border-b border-gray-200 mb-4">
                         <button
                             onClick={() => setActiveTab('assigned')}
@@ -122,9 +131,8 @@ const Dashboard = () => {
                         </button>
                     </div>
 
-                    {/* --- Display Active Tab Content --- */}
                     {activeTab === 'assigned' ? (
-                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} />
+                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} itemRates={itemRates} />
                     ) : (
                         <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
                     )}

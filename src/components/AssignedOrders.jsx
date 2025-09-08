@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { ref, get, onValue } from 'firebase/database';
+import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
 import { useVendor } from '../App';
-import { FaPhoneAlt, FaMapPin } from 'react-icons/fa';
-import Loader from '../pages/Loader';
+import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (kept inside as it's only used here)
+// OTP Modal Component
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -72,8 +71,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
     );
 };
 
-
-const AssignedOrders = ({ assignedOrders, usersMap }) => {
+const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
@@ -82,46 +80,53 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const handleProcessOrder = async (enteredOtp) => {
         if (!otpModalOrder || !otpModalOrder.userId) {
             return toast.error("Cannot process order: User ID is missing.");
-        };
+        }
         setVerifyLoading(true);
-
         try {
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
-
             if (!userSnapshot.exists()) {
-                setVerifyLoading(false);
-                return toast.error("Customer data could not be found!");
+                throw new Error("Customer data could not be found!");
             }
-
             const userData = userSnapshot.val();
-
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
                 navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
             } else {
-                toast.error("Invalid OTP. Please ask the customer to check again.");
+                toast.error("Invalid OTP. Please check again.");
             }
         } catch (error) {
-            console.error("OTP Verification Error:", error);
-            toast.error("An error occurred during verification.");
+            toast.error(error.message);
         } finally {
             setVerifyLoading(false);
         }
     };
 
-    // Group orders by user to show a consolidated view
+    // --- NEW: Function to calculate estimated amount ---
+    const calculateEstimatedAmount = (productsList) => {
+        if (!productsList || !itemRates) return 0;
+        let total = 0;
+        productsList.forEach(product => {
+            const rate = itemRates[product.name] || 0;
+            const weight = parseFloat(product.weight) || 0;
+            total += rate * weight;
+        });
+        return total;
+    };
+
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
             acc[key] = { ...order, productsList: [] };
         }
-        acc[key].productsList.push(order.products);
+        // Assuming order.products is an object like { name: '...', weight: '...' }
+        if (order.products) {
+            acc[key].productsList.push(order.products);
+        }
         return acc;
     }, {});
     const groupedList = Object.values(groupedOrders);
-
 
     return (
         <div className="overflow-x-auto">
@@ -131,21 +136,30 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                 <table className="w-full text-sm text-left text-gray-600">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
-                            <th className="px-4 py-3">Customer</th>
+                            <th className="px-4 py-3">Customer Info</th>
                             <th className="px-4 py-3">Address</th>
-                            <th className="px-4 py-3">Contact</th>
+                            <th className="px-4 py-3">Est. Amount</th>
                             <th className="px-4 py-3">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {groupedList.map(order => (
                             <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                <td className="px-4 py-4 font-medium text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</td>
-                                <td className="px-4 py-4"><FaMapPin className="inline mr-2 text-gray-400" />{usersMap[order.userId]?.address || 'N/A'}</td>
                                 <td className="px-4 py-4">
-                                    <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-blue-600 hover:underline">
-                                        <FaPhoneAlt size={12} /> {order.mobile}
+                                    <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
+                                    <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                                        <FaPhoneAlt size={10} /> {order.mobile}
                                     </a>
+                                </td>
+                                <td className="px-4 py-4 text-xs">
+                                    <FaMapPin className="inline mr-2 text-gray-400" />
+                                    {usersMap[order.userId]?.address || 'N/A'}
+                                </td>
+                                <td className="px-4 py-4 font-semibold text-gray-800">
+                                    <div className="flex items-center gap-1">
+                                        <FaRupeeSign size={12} />
+                                        {calculateEstimatedAmount(order.productsList).toFixed(2)}
+                                    </div>
                                 </td>
                                 <td className="px-4 py-4">
                                     <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
