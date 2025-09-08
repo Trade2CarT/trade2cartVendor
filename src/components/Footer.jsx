@@ -3,28 +3,25 @@ import { NavLink } from 'react-router-dom';
 import { FaThLarge, FaUserAlt } from 'react-icons/fa';
 
 const Footer = () => {
-    const activeLinkStyle = {
-        color: '#2563EB', // Tailwind's blue-600
-    };
+    const commonClasses = "flex flex-col items-center justify-center gap-1 w-full h-16 text-gray-500 transition-colors duration-200";
+    const activeClasses = "text-blue-600 font-bold";
 
     return (
-        <footer className="fixed bottom-0 w-full bg-white rounded-t-2xl shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-40">
-            <nav className="flex justify-around items-center p-2">
+        <footer className="fixed bottom-0 w-full bg-white border-t border-gray-200 z-40">
+            <nav className="flex justify-around items-center">
                 <NavLink
                     to="/dashboard"
-                    className="flex flex-col items-center text-gray-500 p-2 no-underline hover:text-blue-600"
-                    style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+                    className={({ isActive }) => `${commonClasses} ${isActive ? activeClasses : ''}`}
                 >
-                    <FaThLarge className="text-2xl" />
-                    <span className="text-xs font-medium">Dashboard</span>
+                    <FaThLarge className="text-xl" />
+                    <span className="text-xs font-medium tracking-wide">Dashboard</span>
                 </NavLink>
                 <NavLink
                     to="/account"
-                    className="flex flex-col items-center text-gray-500 p-2 no-underline hover:text-blue-600"
-                    style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+                    className={({ isActive }) => `${commonClasses} ${isActive ? activeClasses : ''}`}
                 >
-                    <FaUserAlt className="text-2xl" />
-                    <span className="text-xs font-medium">Account</span>
+                    <FaUserAlt className="text-xl" />
+                    <span className="text-xs font-medium tracking-wide">Account</span>
                 </NavLink>
             </nav>
         </footer>

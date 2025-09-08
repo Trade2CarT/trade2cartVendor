@@ -14,13 +14,14 @@ import {
     FaShieldAlt,
     FaFileContract,
     FaChevronRight,
+    FaChevronDown,
     FaUser,
     FaMapPin,
     FaMapMarkerAlt,
     FaIdCard
 } from 'react-icons/fa';
 
-// A reusable component for displaying profile information cleanly
+// Reusable component for displaying profile information
 const InfoCard = ({ icon, label, value }) => (
     <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
         <div className="text-gray-400 mt-1 text-lg">{icon}</div>
@@ -36,6 +37,9 @@ const AccountPage = () => {
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
     const [modalContent, setModalContent] = useState(null);
+
+    // State to control the collapsible profile section
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -74,32 +78,41 @@ const AccountPage = () => {
         <>
             <SEO title="My Account - Trade2Cart Vendor" description="Manage your vendor profile, view policies, and sign out." />
             <div className="p-4 space-y-6">
-                {/* --- Profile Header --- */}
-                <div className="flex items-center space-x-4 p-4 bg-white rounded-xl shadow-md">
-                    {vendor?.profilePhotoURL ? (
-                        <img src={vendor.profilePhotoURL} alt="Profile" className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-sm" />
-                    ) : (
-                        <FaUserCircle className="text-6xl text-gray-300" />
-                    )}
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-800">{vendor?.name || "Vendor"}</h1>
-                        <p className="text-sm text-gray-500">{vendor?.phone}</p>
+
+                {/* --- Collapsible Profile Section --- */}
+                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                    <button
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="w-full flex items-center justify-between p-4 text-left"
+                    >
+                        <div className="flex items-center space-x-4">
+                            {vendor?.profilePhotoURL ? (
+                                <img src={vendor.profilePhotoURL} alt="Profile" className="w-16 h-16 rounded-full object-cover" />
+                            ) : (
+                                <FaUserCircle className="text-6xl text-gray-300" />
+                            )}
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-800">{vendor?.name || "Vendor Profile"}</h1>
+                                <p className="text-sm text-gray-500">{vendor?.phone}</p>
+                            </div>
+                        </div>
+                        <FaChevronDown className={`text-gray-500 transition-transform duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* --- Hidden Profile Details --- */}
+                    <div className={`transition-all duration-500 ease-in-out ${isProfileOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="p-4 border-t border-gray-100">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <InfoCard icon={<FaUser />} label="Full Name" value={vendor?.name} />
+                                <InfoCard icon={<FaMapPin />} label="Registered Location" value={vendor?.location} />
+                                <InfoCard icon={<FaMapMarkerAlt />} label="Full Address" value={vendor?.address} />
+                                <InfoCard icon={<FaIdCard />} label="PAN Number" value={vendor?.pan} />
+                                <InfoCard icon={<FaIdCard />} label="Aadhaar Number" value={vendor?.aadhaar} />
+                                <InfoCard icon={<FaIdCard />} label="Driving License" value={vendor?.license} />
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                {/* --- My Profile Information Section --- */}
-                <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h2 className="text-lg font-bold text-gray-800 mb-4 px-2">My Profile</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <InfoCard icon={<FaUser />} label="Full Name" value={vendor?.name} />
-                        <InfoCard icon={<FaMapPin />} label="Registered Location" value={vendor?.location} />
-                        <InfoCard icon={<FaMapMarkerAlt />} label="Full Address" value={vendor?.address} />
-                        <InfoCard icon={<FaIdCard />} label="PAN Number" value={vendor?.pan} />
-                        <InfoCard icon={<FaIdCard />} label="Aadhaar Number" value={vendor?.aadhaar} />
-                        <InfoCard icon={<FaIdCard />} label="Driving License" value={vendor?.license} />
-                    </div>
-                </div>
-
 
                 {/* --- Policies and Legal Section --- */}
                 <div className="bg-white p-2 sm:p-4 rounded-xl shadow-md space-y-2">
