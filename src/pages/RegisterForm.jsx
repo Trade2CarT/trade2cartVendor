@@ -140,7 +140,7 @@ const RegisterForm = () => {
 
         if (file.size > MAX_SIZE) error = `File is too large (max 250KB).`;
         else if (key === 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) error = 'Only JPG, JPEG, or PNG images are allowed.';
-        else if (key !== 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'].includes(file.type)) error = 'Only JPG, PNG, or PDF files are allowed.';
+        else if (key !== 'profilePhoto' && !['image/jpeg', 'image/png', 'image/jpg', ].includes(file.type)) error = 'Only JPG, PNG';
 
         if (error) {
             toast.error(error);
@@ -284,9 +284,9 @@ const RegisterForm = () => {
                         <TextInput name="license" placeholder="Driving License Number" value={formData.license} onChange={handleInputChange} onBlur={handleBlur} error={formErrors.license} icon={<FaIdCard />} maxLength={20} />
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                            <FileInput label="Aadhaar Photo" icon={<FaFileUpload className="text-blue-500" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} fileName={files.aadhaarPhoto?.name} error={formErrors.aadhaarPhoto} accept="image/png, image/jpeg, application/pdf" />
-                            <FileInput label="PAN Photo" icon={<FaFileUpload className="text-green-500" />} onChange={(e) => handleFileChange(e, 'panPhoto')} fileName={files.panPhoto?.name} error={formErrors.panPhoto} accept="image/png, image/jpeg, application/pdf" />
-                            <FileInput label="License Photo" icon={<FaFileUpload className="text-yellow-500" />} onChange={(e) => handleFileChange(e, 'licensePhoto')} fileName={files.licensePhoto?.name} error={formErrors.licensePhoto} accept="image/png, image/jpeg, application/pdf" />
+                            <FileInput label="Aadhaar Photo" icon={<FaFileUpload className="text-blue-500" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} fileName={files.aadhaarPhoto?.name} error={formErrors.aadhaarPhoto} accept="image/png, image/jpeg" />
+                            <FileInput label="PAN Photo" icon={<FaFileUpload className="text-green-500" />} onChange={(e) => handleFileChange(e, 'panPhoto')} fileName={files.panPhoto?.name} error={formErrors.panPhoto} accept="image/png, image/jpeg" />
+                            <FileInput label="License Photo" icon={<FaFileUpload className="text-yellow-500" />} onChange={(e) => handleFileChange(e, 'licensePhoto')} fileName={files.licensePhoto?.name} error={formErrors.licensePhoto} accept="image/png, image/jpeg" />
                         </div>
 
                         {/* --- ADDED AGREEMENT CHECKBOX --- */}
