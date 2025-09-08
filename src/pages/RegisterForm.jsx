@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref as dbRef, set, get } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { signOut } from 'firebase/auth';
 import { auth, db, storage } from '../firebase';
-import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle, FaCamera } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaIdCard, FaFileUpload, FaExclamationCircle, FaCamera, FaSignOutAlt } from 'react-icons/fa';
 // import Loader from '../components/Loader';
 import SEO from '../components/SEO';
+import logo from '../assets/images/logo.PNG';
 import Loader from './Loader';
 
 // --- Reusable File Input Component with Validation ---
@@ -23,7 +25,7 @@ const FileInput = ({ label, icon, onChange, fileName, error, accept }) => (
 );
 
 // --- Reusable Text Input with Validation ---
-const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength, pattern, type = "text" }) => (
+const TextInput = ({ name, placeholder, value, onChange, onBlur, error, icon, maxLength, pattern, type = "text" }) => (
     <div className="relative">
         {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{icon}</div>}
         <input
@@ -32,6 +34,7 @@ const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength,
             placeholder={placeholder}
             value={value}
             onChange={onChange}
+            onBlur={onBlur}
             maxLength={maxLength}
             pattern={pattern}
             className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 ${error ? 'border-red-500 ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`}
@@ -82,6 +85,16 @@ const RegisterForm = () => {
         fetchLocations();
     }, []);
 
+    const handleSignOut = async () => {
+        try {
+            await signOut(auth);
+            toast.success("You have been signed out.");
+            // The AuthChecker in App.jsx will automatically navigate to /login
+        } catch (error) {
+            toast.error("Failed to sign out.");
+        }
+    };
+
     const validateField = (name, value) => {
         let error = '';
         if (!value) return "This field is required.";
@@ -95,11 +108,18 @@ const RegisterForm = () => {
         return error;
     };
 
+    const handleBlur = (e) => {
+        const { name, value } = e.target;
+        setFormErrors(prev => ({ ...prev, [name]: validateField(name, value) }));
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         let finalValue = name === 'pan' ? value.toUpperCase() : value;
         setFormData(prev => ({ ...prev, [name]: finalValue }));
-        setFormErrors(prev => ({ ...prev, [name]: validateField(name, finalValue) }));
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: validateField(name, finalValue) }));
+        }
     };
 
     const handleFileChange = (e, key) => {
@@ -131,8 +151,6 @@ const RegisterForm = () => {
     const validateForm = () => {
         const newErrors = {};
         let isValid = true;
-
-        // Validate text inputs
         for (const key in formData) {
             const error = validateField(key, formData[key]);
             if (error) {
@@ -140,33 +158,26 @@ const RegisterForm = () => {
                 isValid = false;
             }
         }
-
-        // Validate file inputs
         for (const key in files) {
             if (!files[key]) {
                 newErrors[key] = "This file is required.";
                 isValid = false;
             }
         }
-
         setFormErrors(newErrors);
         return isValid;
     };
 
-
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         if (!validateForm()) {
             return toast.error("Please fill all required fields correctly.");
         }
-
         const user = auth.currentUser;
         if (!user) {
             toast.error("Authentication error. Please log in again.");
             return navigate('/');
         }
-
         setLoading(true);
         const filesToUpload = [
             { key: 'profilePhoto', file: files.profilePhoto, name: 'Profile Photo' },
@@ -175,7 +186,6 @@ const RegisterForm = () => {
             { key: 'licensePhoto', file: files.licensePhoto, name: 'License Document' },
         ];
         const uploadedUrls = {};
-
         try {
             for (let i = 0; i < filesToUpload.length; i++) {
                 const item = filesToUpload[i];
@@ -184,19 +194,11 @@ const RegisterForm = () => {
                 const url = await uploadFile(item.file, `vendors/${user.uid}/${item.key}.${getFileExtension(item.file.name)}`);
                 uploadedUrls[item.key] = url;
             }
-
             setLoaderText("Finalizing registration...");
-
             const vendorData = {
-                ...formData,
-                uid: user.uid,
-                phone: user.phoneNumber,
-                status: 'pending',
-                createdAt: new Date().toISOString(),
-                profilePhotoURL: uploadedUrls.profilePhoto,
-                aadhaarPhotoURL: uploadedUrls.aadhaarPhoto,
-                panPhotoURL: uploadedUrls.panPhoto,
-                licensePhotoURL: uploadedUrls.licensePhoto,
+                ...formData, uid: user.uid, phone: user.phoneNumber, status: 'pending', createdAt: new Date().toISOString(),
+                profilePhotoURL: uploadedUrls.profilePhoto, aadhaarPhotoURL: uploadedUrls.aadhaarPhoto,
+                panPhotoURL: uploadedUrls.panPhoto, licensePhotoURL: uploadedUrls.licensePhoto,
             };
             await set(dbRef(db, `vendors/${user.uid}`), vendorData);
             toast.success('Registration submitted for verification!');
@@ -216,7 +218,16 @@ const RegisterForm = () => {
     return (
         <>
             <SEO title="Join Trade2Cart as Vendor" description="Register as a vendor with Trade2Cart and receive free pickup leads." />
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
+                {/* Simple Header for Registration Page */}
+                <div className="w-full max-w-lg mb-4 flex justify-between items-center">
+                    <img src={logo} alt="Trade2Cart Logo" className="h-10" />
+                    <button onClick={handleSignOut} className="flex items-center gap-2 px-3 py-1.5 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors">
+                        <FaSignOutAlt />
+                        <span>Sign Out</span>
+                    </button>
+                </div>
+
                 <div className="w-full max-w-lg bg-white p-8 rounded-2xl shadow-xl relative">
                     {loading && <LoaderOverlay text={loaderText} />}
                     <h2 className="text-3xl font-bold text-center text-gray-800 mb-2">Become a Partner</h2>
@@ -233,11 +244,11 @@ const RegisterForm = () => {
                             {formErrors.profilePhoto && <p className="text-xs text-red-600 mt-2">{formErrors.profilePhoto}</p>}
                         </div>
 
-                        <TextInput name="name" placeholder="Full Name" value={formData.name} onChange={handleInputChange} error={formErrors.name} icon={<FaUser />} />
+                        <TextInput name="name" placeholder="Full Name" value={formData.name} onChange={handleInputChange} onBlur={handleBlur} error={formErrors.name} icon={<FaUser />} />
 
                         <div className="relative">
                             <FaMapMarkerAlt className="absolute left-3 top-4 text-gray-400" />
-                            <textarea name="address" placeholder="Full Address" value={formData.address} onChange={handleInputChange} className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 ${formErrors.address ? 'border-red-500 ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`} rows="2" required />
+                            <textarea name="address" placeholder="Full Address" value={formData.address} onChange={handleInputChange} onBlur={handleBlur} className={`w-full pl-10 pr-3 py-3 border rounded-lg focus:ring-2 ${formErrors.address ? 'border-red-500 ring-red-200' : 'border-gray-300 focus:ring-blue-500'}`} rows="2" required />
                             {formErrors.address && <p className="text-xs text-red-600 mt-1 pl-1">{formErrors.address}</p>}
                         </div>
 
@@ -253,10 +264,10 @@ const RegisterForm = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <TextInput name="aadhaar" placeholder="Aadhaar Number" value={formData.aadhaar} onChange={handleInputChange} error={formErrors.aadhaar} icon={<FaIdCard />} maxLength={12} />
-                            <TextInput name="pan" placeholder="PAN Number" value={formData.pan} onChange={handleInputChange} error={formErrors.pan} icon={<FaIdCard />} maxLength={10} />
+                            <TextInput name="aadhaar" placeholder="Aadhaar Number" value={formData.aadhaar} onChange={handleInputChange} onBlur={handleBlur} error={formErrors.aadhaar} icon={<FaIdCard />} maxLength={12} />
+                            <TextInput name="pan" placeholder="PAN Number" value={formData.pan} onChange={handleInputChange} onBlur={handleBlur} error={formErrors.pan} icon={<FaIdCard />} maxLength={10} />
                         </div>
-                        <TextInput name="license" placeholder="Driving License Number" value={formData.license} onChange={handleInputChange} error={formErrors.license} icon={<FaIdCard />} maxLength={20} />
+                        <TextInput name="license" placeholder="Driving License Number" value={formData.license} onChange={handleInputChange} onBlur={handleBlur} error={formErrors.license} icon={<FaIdCard />} maxLength={20} />
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                             <FileInput label="Aadhaar Photo" icon={<FaFileUpload className="text-blue-500" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} fileName={files.aadhaarPhoto?.name} error={formErrors.aadhaarPhoto} accept="image/png, image/jpeg, application/pdf" />
