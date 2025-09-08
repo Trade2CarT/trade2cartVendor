@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (No changes needed here)
+// OTP Modal Component
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -104,14 +104,16 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
         }
     };
 
-    // --- NEW: Robust function to get the estimated amount ---
+    // --- NEW: Final, robust function to get the estimated amount ---
     const getEstimatedAmount = (order) => {
-        // 1. Check for a 'total' field on the main order object first.
-        if (order.total && parseFloat(order.total) > 0) {
-            return parseFloat(order.total);
+        // Priority 1: Check for common direct fields for the total.
+        // This is based on your Admin Panel screenshot.
+        const directTotal = order.total || order.estAmount || order.estimatedAmount;
+        if (directTotal && parseFloat(directTotal) > 0) {
+            return parseFloat(directTotal);
         }
 
-        // 2. If no 'total', calculate it from the products list.
+        // Priority 2: Fallback to calculating from the products list.
         let calculatedTotal = 0;
         if (order.productsList && itemRates) {
             order.productsList.forEach(product => {
@@ -127,8 +129,10 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
+            // Include all fields from the first order encountered for that user
             acc[key] = { ...order, productsList: [] };
         }
+        // Aggregate all products from multiple assignments for the same user
         if (order.products && order.products.name) {
             acc[key].productsList.push(order.products);
         }
@@ -163,7 +167,6 @@ const AssignedOrders = ({ assignedOrders, usersMap, itemRates }) => {
                                     </a>
                                 </td>
 
-                                {/* --- UPDATED: Uses the new robust function --- */}
                                 <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
