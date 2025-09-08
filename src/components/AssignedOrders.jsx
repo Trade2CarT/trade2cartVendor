@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (This is correct, no changes needed)
+// OTP Modal Component
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -72,7 +72,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
 };
 
 
-const AssignedOrders = ({ assignedOrders, usersMap }) => {
+const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
@@ -86,9 +86,8 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
         try {
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
-            if (!userSnapshot.exists()) {
-                throw new Error("Customer data could not be found!");
-            }
+            if (!userSnapshot.exists()) throw new Error("Customer data could not be found!");
+
             const userData = userSnapshot.val();
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
@@ -104,21 +103,9 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
         }
     };
 
-    // Group multiple assignments for the same user into one row
-    const groupedOrders = assignedOrders.reduce((acc, order) => {
-        const key = order.userId || order.mobile;
-        if (!acc[key]) {
-            acc[key] = { ...order, total: 0 };
-        }
-        // Sum the total for each item assigned to the same user
-        acc[key].total += parseFloat(order.total || 0);
-        return acc;
-    }, {});
-    const groupedList = Object.values(groupedOrders);
-
     return (
         <div className="overflow-x-auto">
-            {groupedList.length === 0 ? (
+            {assignedOrders.length === 0 ? (
                 <p className="text-center text-gray-500 py-8">No new orders assigned. Check back later!</p>
             ) : (
                 <table className="w-full text-sm text-left text-gray-600">
@@ -130,34 +117,39 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {groupedList.map(order => (
-                            <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                <td className="px-4 py-4">
-                                    <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
-                                    <p className="text-xs text-gray-500 mt-1 flex items-start gap-2">
-                                        <FaMapPin className="flex-shrink-0 mt-0.5" />
-                                        <span>{usersMap[order.userId]?.address || 'No address provided'}</span>
-                                    </p>
-                                    <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline mt-2">
-                                        <FaPhoneAlt size={10} /> {order.mobile}
-                                    </a>
-                                </td>
+                        {assignedOrders.map(order => {
+                            // --- NEW: Find the original total from wasteEntriesMap ---
+                            const originalWasteEntry = wasteEntriesMap[order.id];
+                            const estimatedTotal = originalWasteEntry ? originalWasteEntry.total : '0.00';
 
-                                <td className="px-4 py-4 font-semibold text-gray-800 align-top">
-                                    <div className="flex items-center gap-1">
-                                        <FaRupeeSign size={12} />
-                                        {/* This directly reads the total from the grouped order and formats it */}
-                                        {parseFloat(order.total || 0).toFixed(2)}
-                                    </div>
-                                </td>
+                            return (
+                                <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
+                                    <td className="px-4 py-4">
+                                        <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
+                                        <p className="text-xs text-gray-500 mt-1 flex items-start gap-2">
+                                            <FaMapPin className="flex-shrink-0 mt-0.5" />
+                                            <span>{usersMap[order.userId]?.address || 'No address provided'}</span>
+                                        </p>
+                                        <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline mt-2">
+                                            <FaPhoneAlt size={10} /> {order.mobile}
+                                        </a>
+                                    </td>
 
-                                <td className="px-4 py-4 align-top">
-                                    <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
-                                        Process
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                                    <td className="px-4 py-4 font-semibold text-gray-800 align-top">
+                                        <div className="flex items-center gap-1">
+                                            <FaRupeeSign size={12} />
+                                            {parseFloat(estimatedTotal).toFixed(2)}
+                                        </div>
+                                    </td>
+
+                                    <td className="px-4 py-4 align-top">
+                                        <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
+                                            Process
+                                        </button>
+                                    </td>
+                                </tr>
+                            )
+                        })}
                     </tbody>
                 </table>
             )}

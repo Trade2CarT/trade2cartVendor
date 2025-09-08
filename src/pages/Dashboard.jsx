@@ -33,7 +33,7 @@ const Dashboard = () => {
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
-    const [itemRates, setItemRates] = useState({}); // <-- NEW: State for item rates
+    const [wasteEntriesMap, setWasteEntriesMap] = useState({}); // <-- NEW: To store totals
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('assigned');
 
@@ -55,23 +55,17 @@ const Dashboard = () => {
             setUsersMap(snapshot.val() || {});
         });
 
-        // --- NEW: Fetch all item rates once ---
-        const itemsRef = ref(db, 'items');
-        const unsubscribeItems = onValue(itemsRef, (snapshot) => {
-            const rates = {};
-            snapshot.forEach(child => {
-                const item = child.val();
-                if (item.name && item.rate) {
-                    rates[item.name] = parseFloat(item.rate);
-                }
-            });
-            setItemRates(rates);
+        // --- NEW: Fetch all wasteEntries to get the 'total' amount ---
+        const wasteEntriesRef = ref(db, 'wasteEntries');
+        const unsubscribeWasteEntries = onValue(wasteEntriesRef, (snapshot) => {
+            const entries = snapshot.val() || {};
+            setWasteEntriesMap(entries);
         });
 
         return () => {
             unsubscribeAssignments();
             unsubscribeUsers();
-            unsubscribeItems(); // <-- NEW: Unsubscribe from items
+            unsubscribeWasteEntries(); // <-- NEW: Unsubscribe
         };
     }, [vendor]);
 
@@ -132,7 +126,7 @@ const Dashboard = () => {
                     </div>
 
                     {activeTab === 'assigned' ? (
-                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} itemRates={itemRates} />
+                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} wasteEntriesMap={wasteEntriesMap} />
                     ) : (
                         <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
                     )}
