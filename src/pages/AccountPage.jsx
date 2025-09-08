@@ -21,7 +21,6 @@ import {
     FaIdCard
 } from 'react-icons/fa';
 
-// Reusable component for displaying profile information
 const InfoCard = ({ icon, label, value }) => (
     <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
         <div className="text-gray-400 mt-1 text-lg">{icon}</div>
@@ -37,8 +36,6 @@ const AccountPage = () => {
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
     const [modalContent, setModalContent] = useState(null);
-
-    // State to control the collapsible profile section
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     useEffect(() => {
@@ -79,11 +76,10 @@ const AccountPage = () => {
             <SEO title="My Account - Trade2Cart Vendor" description="Manage your vendor profile, view policies, and sign out." />
             <div className="p-4 space-y-6">
 
-                {/* --- Collapsible Profile Section --- */}
                 <div className="bg-white rounded-xl shadow-md overflow-hidden">
                     <button
                         onClick={() => setIsProfileOpen(!isProfileOpen)}
-                        className="w-full flex items-center justify-between p-4 text-left"
+                        className="w-full flex items-center justify-between p-4 text-left transition-colors hover:bg-gray-50"
                     >
                         <div className="flex items-center space-x-4">
                             {vendor?.profilePhotoURL ? (
@@ -99,7 +95,6 @@ const AccountPage = () => {
                         <FaChevronDown className={`text-gray-500 transition-transform duration-300 ${isProfileOpen ? 'rotate-180' : ''}`} />
                     </button>
 
-                    {/* --- Hidden Profile Details --- */}
                     <div className={`transition-all duration-500 ease-in-out ${isProfileOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="p-4 border-t border-gray-100">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -114,7 +109,6 @@ const AccountPage = () => {
                     </div>
                 </div>
 
-                {/* --- Policies and Legal Section --- */}
                 <div className="bg-white p-2 sm:p-4 rounded-xl shadow-md space-y-2">
                     <button
                         onClick={() => setModalContent('privacy')}
@@ -138,7 +132,6 @@ const AccountPage = () => {
                     </button>
                 </div>
 
-                {/* --- Logout Button --- */}
                 <div className="mt-6">
                     <button
                         onClick={handleSignOut}

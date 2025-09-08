@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useVendor } from '../App'; // Import the useVendor hook
 import logo from '/src/assets/images/logo.PNG';
 import { FaUserCircle } from 'react-icons/fa';
 
-const Header = ({ vendor }) => {
+const Header = () => {
+    const vendor = useVendor(); // Get vendor data from the context
+
     return (
         <header className="sticky top-0 bg-white shadow-sm p-4 flex justify-between items-center z-40">
             <Link to="/dashboard">
@@ -13,7 +16,7 @@ const Header = ({ vendor }) => {
                 {vendor?.profilePhotoURL ? (
                     <img src={vendor.profilePhotoURL} alt="Profile" className="w-10 h-10 rounded-full object-cover border-2 border-gray-200" />
                 ) : (
-                    <FaUserCircle className="w-10 h-10 text-gray-400" />
+                    <FaUserCircle className="w-10 h-10 text-gray-300" />
                 )}
             </Link>
         </header>
@@ -21,4 +24,3 @@ const Header = ({ vendor }) => {
 };
 
 export default Header;
-
