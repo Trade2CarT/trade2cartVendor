@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (This remains unchanged)
+// OTP Modal Component (This is correct, no changes needed)
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -71,6 +71,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
     );
 };
 
+
 const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const navigate = useNavigate();
     const vendor = useVendor();
@@ -85,8 +86,9 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
         try {
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
-            if (!userSnapshot.exists()) throw new Error("Customer data could not be found!");
-
+            if (!userSnapshot.exists()) {
+                throw new Error("Customer data could not be found!");
+            }
             const userData = userSnapshot.val();
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
@@ -102,7 +104,7 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
         }
     };
 
-    // Group orders for the same user into a single row
+    // Group multiple assignments for the same user into one row
     const groupedOrders = assignedOrders.reduce((acc, order) => {
         const key = order.userId || order.mobile;
         if (!acc[key]) {
@@ -144,6 +146,7 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                                 <td className="px-4 py-4 font-semibold text-gray-800 align-top">
                                     <div className="flex items-center gap-1">
                                         <FaRupeeSign size={12} />
+                                        {/* This directly reads the total from the grouped order and formats it */}
                                         {parseFloat(order.total || 0).toFixed(2)}
                                     </div>
                                 </td>
