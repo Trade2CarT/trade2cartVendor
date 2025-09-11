@@ -124,6 +124,9 @@ const Process = () => {
 
     const handleSubmitBill = async () => {
         setIsSubmitting(true);
+        // src/pages/Process.jsx
+
+        // ... inside the handleSubmitBill function
         try {
             const billData = {
                 assignmentID: assignmentId,
@@ -140,6 +143,7 @@ const Process = () => {
             updates[`/bills/${newBillRef.key}`] = billData;
             updates[`/assignments/${assignmentId}/status`] = 'completed';
             updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
+            updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString(); // <-- ADD THIS LINE
             updates[`/users/${assignment.userId}/Status`] = 'available';
             updates[`/users/${assignment.userId}/otp`] = null;
             updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
@@ -147,6 +151,7 @@ const Process = () => {
             await update(ref(db), updates);
             toast.success("Bill saved and order completed!");
             navigate('/dashboard');
+        
         } catch (error) {
             console.error("Failed to submit bill:", error);
             toast.error("An error occurred. Please try again.");

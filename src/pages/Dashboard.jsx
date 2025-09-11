@@ -90,6 +90,9 @@ const Dashboard = () => {
         );
     }
 
+    // src/pages/Dashboard.jsx
+
+    // This logic will now work because 'o.timestamp' will exist for new orders
     const totalEarningsToday = processedOrders
         .filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString())
         .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
