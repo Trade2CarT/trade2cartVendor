@@ -1,22 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
-import { onAuthStateChanged } from 'firebase/auth'; // Import auth listener
-import { db, auth } from '../firebase'; // Import auth
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '../firebase';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
 
-// --- Main Process Component ---
 const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
-    const { state } = useLocation();
 
-    // Use state for vendor location to handle reloads
     const [vendor, setVendor] = useState(null);
-
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
     const [billItems, setBillItems] = useState([{ name: '', rate: '', weight: '', total: 0 }]);
@@ -26,7 +22,6 @@ const Process = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
-    // --- Definitive Data Fetching Logic ---
     useEffect(() => {
         if (!assignmentId) {
             toast.error("No order specified.");
@@ -35,12 +30,13 @@ const Process = () => {
         }
 
         let isMounted = true;
+        setLoading(true);
 
         const fetchData = async () => {
             try {
-                // First, get the logged-in vendor's details using their auth UID
+                // Get the currently authenticated vendor's UID
                 const user = auth.currentUser;
-                if (user) {
+                if (user && isMounted) {
                     const vendorRef = ref(db, `vendors/${user.uid}`);
                     const vendorSnapshot = await get(vendorRef);
                     if (isMounted && vendorSnapshot.exists()) {
@@ -48,7 +44,7 @@ const Process = () => {
                     }
                 }
 
-                // Then, get the assignment and customer details
+                // Fetch the specific assignment
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
                 if (!isMounted || !assignmentSnapshot.exists()) {
@@ -59,6 +55,7 @@ const Process = () => {
                 const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
                 setAssignment(assignmentData);
 
+                // Fetch the customer using the userId from the assignment
                 if (assignmentData.userId) {
                     const userRef = ref(db, `users/${assignmentData.userId}`);
                     const userSnapshot = await get(userRef);
@@ -68,7 +65,7 @@ const Process = () => {
                 }
 
             } catch (error) {
-                if (isMounted) toast.error("Failed to load initial data.");
+                if (isMounted) toast.error("Failed to load critical data.");
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -85,6 +82,7 @@ const Process = () => {
             }
         });
 
+        // Cleanup function
         return () => {
             isMounted = false;
             unsubscribeItems();
@@ -92,7 +90,7 @@ const Process = () => {
 
     }, [assignmentId, navigate]);
 
-    // This useEffect now correctly uses the fetched vendor's location
+    // This useEffect hook filters items correctly, ignoring case
     useEffect(() => {
         if (masterItems.length > 0 && vendor?.location) {
             const vendorLocation = vendor.location.toLowerCase();
@@ -123,6 +121,8 @@ const Process = () => {
         newBillItems[index].weight = value;
         updateItemTotal(index, newBillItems);
     };
+
+    // ... (The rest of the functions in Process.jsx are correct and do not need to be changed)
 
     const updateItemTotal = (index, items) => {
         const rate = parseFloat(items[index].rate) || 0;
@@ -261,12 +261,10 @@ const Process = () => {
                             <FaPlus size={12} /> Add Another Item
                         </button>
                     }
-
                     <div className="mt-8 p-4 bg-green-100 border-t-4 border-green-500 rounded-b-lg flex justify-between items-center">
                         <span className="text-xl font-bold text-green-800">Total Bill</span>
                         <span className="text-2xl font-bold text-green-800">₹{totalBill.toFixed(2)}</span>
                     </div>
-
                     {!billCalculated ? (
                         <div className="mt-6 flex gap-4">
                             <button onClick={() => navigate('/dashboard')} className="w-full py-3 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400">Cancel</button>
@@ -288,4 +286,4 @@ const Process = () => {
     );
 };
 
-export default Process;
+export default Process; 
