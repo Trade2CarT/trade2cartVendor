@@ -30,26 +30,35 @@ const Process = () => {
             return;
         }
 
-        setLoading(true);
-
         const fetchOrderData = async () => {
+            setLoading(true);
             try {
+                // Fetch assignment details first
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
+
                 if (!assignmentSnapshot.exists()) {
                     toast.error("Order not found.");
                     return navigate('/dashboard');
                 }
+
+                // Use a local variable for the data right away
                 const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
                 setAssignment(assignmentData);
 
+                // Now, use the local assignmentData to fetch the customer
                 if (assignmentData.userId) {
                     const userRef = ref(db, `users/${assignmentData.userId}`);
                     const userSnapshot = await get(userRef);
-                    if (userSnapshot.exists()) setCustomer(userSnapshot.val());
+                    if (userSnapshot.exists()) {
+                        setCustomer(userSnapshot.val());
+                    }
+                } else {
+                    toast.error("Customer ID missing in order.");
                 }
+
             } catch (error) {
-                toast.error("Failed to load order data.");
+                toast.error("Failed to load initial order data.");
                 console.error(error);
             } finally {
                 setLoading(false);
@@ -66,7 +75,7 @@ const Process = () => {
             setMasterItems(itemsData);
         });
 
-        // This cleanup function is crucial and will run when the component is left
+        // Cleanup function to prevent memory leaks
         return () => {
             unsubscribeItems();
         };
@@ -269,4 +278,4 @@ const Process = () => {
     );
 };
 
-export default Process;  
+export default Process;
