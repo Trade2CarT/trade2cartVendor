@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
 import { db } from '../firebase';
-import { useVendor } from '../App';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
 
+// --- Main Process Component ---
 const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
-    const vendor = useVendor();
+    const { state } = useLocation();
+    const vendorLocation = state?.vendorLocation || 'Unknown';
 
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
@@ -22,7 +23,6 @@ const Process = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
-    // --- Definitive Data Fetching Logic ---
     useEffect(() => {
         if (!assignmentId) {
             toast.error("No order specified.");
@@ -30,65 +30,49 @@ const Process = () => {
             return;
         }
 
-        let isMounted = true;
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const assignmentRef = ref(db, `assignments/${assignmentId}`);
+                const assignmentSnapshot = await get(assignmentRef);
+                if (!assignmentSnapshot.exists()) {
+                    toast.error("Order not found.");
+                    return navigate('/dashboard');
+                }
+                const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
+                setAssignment(assignmentData);
 
-        // Listener for items
-        const itemsRef = ref(db, 'items');
-        const unsubscribeItems = onValue(itemsRef, (snapshot) => {
-            if (isMounted) {
-                const itemsData = [];
-                snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
-                setMasterItems(itemsData);
-            }
-        });
+                if (assignmentData.userId) {
+                    const userRef = ref(db, `users/${assignmentData.userId}`);
+                    const userSnapshot = await get(userRef);
+                    if (userSnapshot.exists()) setCustomer(userSnapshot.val());
+                }
 
-        // One-time fetch for assignment and customer
-        const assignmentRef = ref(db, `assignments/${assignmentId}`);
-        get(assignmentRef).then(assignmentSnapshot => {
-            if (!isMounted || !assignmentSnapshot.exists()) {
-                if (isMounted) toast.error("Order not found.");
-                return;
-            }
+                const itemsRef = ref(db, 'items');
+                onValue(itemsRef, (snapshot) => {
+                    const itemsData = [];
+                    snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
+                    setMasterItems(itemsData);
+                });
 
-            const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
-            setAssignment(assignmentData);
-
-            if (assignmentData.userId) {
-                const userRef = ref(db, `users/${assignmentData.userId}`);
-                return get(userRef);
-            }
-            return null;
-        }).then(userSnapshot => {
-            if (isMounted && userSnapshot && userSnapshot.exists()) {
-                setCustomer(userSnapshot.val());
-            }
-        }).catch(error => {
-            if (isMounted) {
+            } catch (error) {
                 toast.error("Failed to load initial order data.");
                 console.error(error);
+            } finally {
+                setLoading(false);
             }
-        }).finally(() => {
-            if (isMounted) setLoading(false);
-        });
-
-
-        // Cleanup function
-        return () => {
-            isMounted = false;
-            unsubscribeItems();
         };
-
+        fetchData();
     }, [assignmentId, navigate]);
 
     useEffect(() => {
-        if (masterItems.length > 0 && vendor?.location) {
-            const vendorLocation = vendor.location.toLowerCase();
+        if (masterItems.length > 0 && vendorLocation) {
             const filtered = masterItems.filter(
-                item => item.location && item.location.toLowerCase() === vendorLocation
+                item => item.location.toLowerCase() === vendorLocation.toLowerCase()
             );
             setFilteredItems(filtered);
         }
-    }, [masterItems, vendor]);
+    }, [masterItems, vendorLocation]);
 
     const handleItemSelection = (index, selectedItemName) => {
         const newBillItems = [...billItems];
@@ -97,7 +81,9 @@ const Process = () => {
             setBillItems(newBillItems);
             return;
         }
+
         const matchedItem = filteredItems.find(item => item.name === selectedItemName);
+
         if (matchedItem) {
             newBillItems[index].name = matchedItem.name;
             newBillItems[index].rate = matchedItem.rate;
@@ -138,30 +124,34 @@ const Process = () => {
 
     const handleSubmitBill = async () => {
         setIsSubmitting(true);
-        try {
-            const billData = {
-                assignmentID: assignmentId,
-                vendorId: assignment.vendorId,
-                userId: assignment.userId,
-                billItems: billItems.map(({ ...item }) => item),
-                totalBill,
-                timestamp: new Date().toISOString(),
-                mobile: assignment.mobile,
-            };
+        // src/pages/Process.jsx
 
-            const updates = {};
-            const newBillRef = push(ref(db, 'bills'));
-            updates[`/bills/${newBillRef.key}`] = billData;
-            updates[`/assignments/${assignmentId}/status`] = 'completed';
-            updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
-            updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString();
-            updates[`/users/${assignment.userId}/Status`] = 'available';
-            updates[`/users/${assignment.userId}/otp`] = null;
-            updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
+// ... inside the handleSubmitBill function
+try {
+    const billData = {
+        assignmentID: assignmentId,
+        vendorId: assignment.vendorId,
+        userId: assignment.userId,
+        billItems: billItems.map(({ ...item }) => item),
+        totalBill,
+        timestamp: new Date().toISOString(),
+        mobile: assignment.mobile,
+    };
 
-            await update(ref(db), updates);
-            toast.success("Bill saved and order completed!");
-            navigate('/dashboard');
+    const updates = {};
+    const newBillRef = push(ref(db, 'bills'));
+    updates[`/bills/${newBillRef.key}`] = billData;
+    updates[`/assignments/${assignmentId}/status`] = 'completed';
+    updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
+    updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString(); // <-- ADD THIS LINE
+    updates[`/users/${assignment.userId}/Status`] = 'available';
+    updates[`/users/${assignment.userId}/otp`] = null;
+    updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
+
+    await update(ref(db), updates);
+    toast.success("Bill saved and order completed!");
+    navigate('/dashboard');
+
         } catch (error) {
             console.error("Failed to submit bill:", error);
             toast.error("An error occurred. Please try again.");
@@ -170,7 +160,7 @@ const Process = () => {
         }
     };
 
-    if (loading || !assignment || !customer || !vendor) {
+    if (loading || !assignment || !customer) {
         return <Loader fullscreen />;
     }
 
