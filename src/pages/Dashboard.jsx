@@ -1,98 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { db } from '../firebase';
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
-import { useVendor } from '../App';
-import { FaBoxOpen, FaRupeeSign, FaTasks } from 'react-icons/fa';
-import SEO from '../components/SEO';
-import Loader from './Loader';
+import { onAuthStateChanged } from 'firebase/auth';
+import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { auth, db } from '../firebase';
+
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
+import Loader from './Loader';
+import SEO from '../components/SEO';
 
-const firebaseObjectToArray = (snapshot) => {
-    const data = snapshot.val();
-    return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
-};
-
-const StatCard = ({ icon, title, value, color }) => (
-    <div className="bg-white p-4 rounded-xl shadow-md flex items-center gap-4">
-        <div className={`p-3 rounded-full ${color}`}>
-            {icon}
-        </div>
-        <div>
-            <p className="text-sm text-gray-500">{title}</p>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
-        </div>
-    </div>
-);
+const firebaseObjectToArray = (data) =>
+    data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
 
 const Dashboard = () => {
-    const navigate = useNavigate();
-    const vendor = useVendor();
+    const [vendor, setVendor] = useState(null);
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
-    const [wasteEntriesMap, setWasteEntriesMap] = useState({}); // <-- NEW: To store totals
-    const [loading, setLoading] = useState(true);
+    const [wasteEntriesMap, setWasteEntriesMap] = useState({});
     const [activeTab, setActiveTab] = useState('assigned');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const vendorRef = ref(db, `vendors/${user.uid}`);
+                const unsubscribeVendor = onValue(vendorRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        setVendor({ uid: user.uid, ...snapshot.val() });
+                    } else {
+                        setLoading(false);
+                    }
+                });
+                return () => unsubscribeVendor();
+            } else {
+                setVendor(null);
+                setLoading(false);
+            }
+        });
+        return () => unsubscribeAuth();
+    }, []);
 
     useEffect(() => {
         if (!vendor) return;
 
-        // Fetch assignments for this vendor
+        setLoading(true);
+
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
+        const usersRef = ref(db, 'users');
+        const wasteEntriesRef = ref(db, 'wasteEntries');
+
         const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
             const allOrders = firebaseObjectToArray(snapshot);
             setAssignedOrders(allOrders.filter(o => o.status === 'assigned'));
             setProcessedOrders(allOrders.filter(o => o.status === 'completed'));
-            setLoading(false);
-        }, () => setLoading(false));
+        });
 
-        // Fetch all users to map user IDs to names/addresses
-        const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
             setUsersMap(snapshot.val() || {});
         });
 
-        // --- NEW: Fetch all wasteEntries to get the 'total' amount ---
-        const wasteEntriesRef = ref(db, 'wasteEntries');
-        const unsubscribeWasteEntries = onValue(wasteEntriesRef, (snapshot) => {
-            const entries = snapshot.val() || {};
-            setWasteEntriesMap(entries);
+        const unsubscribeWaste = onValue(wasteEntriesRef, (snapshot) => {
+            setWasteEntriesMap(snapshot.val() || {});
         });
+
+        setLoading(false);
 
         return () => {
             unsubscribeAssignments();
             unsubscribeUsers();
-            unsubscribeWasteEntries(); // <-- NEW: Unsubscribe
+            unsubscribeWaste();
         };
     }, [vendor]);
 
-    if (loading) {
+    if (loading || !vendor) {
         return <Loader fullscreen />;
     }
 
-    if (vendor?.status === 'pending' || vendor?.status === 'rejected') {
-        const isPending = vendor.status === 'pending';
-        return (
-            <div className={`min-h-[80vh] flex flex-col items-center justify-center text-center p-4 ${isPending ? 'bg-yellow-50' : 'bg-red-50'}`}>
-                <FaTasks className={`text-6xl mb-4 ${isPending ? 'text-yellow-500' : 'text-red-500'}`} />
-                <h1 className={`text-3xl font-bold ${isPending ? 'text-yellow-800' : 'text-red-800'}`}>
-                    {isPending ? 'Verification Pending' : 'Profile Rejected'}
-                </h1>
-                <p className={`mt-2 max-w-md ${isPending ? 'text-yellow-700' : 'text-red-700'}`}>
-                    {isPending
-                        ? "Your profile is under review. We'll notify you once verification is complete."
-                        : "Your profile could not be approved. Please contact support for more information."}
-                </p>
-            </div>
-        );
-    }
-
-    // src/pages/Dashboard.jsx
-
-    // This logic will now work because 'o.timestamp' will exist for new orders
     const totalEarningsToday = processedOrders
         .filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString())
         .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
@@ -101,40 +87,55 @@ const Dashboard = () => {
 
     return (
         <>
-            <SEO
-                title="Vendor Dashboard – Trade2Cart"
-                description="Manage your assigned scrap pickup orders, view customer details, and process payments."
-            />
-            <main className="p-4 md:p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={assignedOrders.length} color="bg-blue-500" />
-                    <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value={completedTodayCount} color="bg-green-500" />
-                    <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
-                </div>
+            <SEO title="Vendor Dashboard" description="Manage your assigned and processed scrap pickup orders." />
+            <Header />
+            <div className="p-4 md:p-8">
+                <div className="max-w-4xl mx-auto">
+                    <h1 className="text-3xl font-bold text-gray-800 mb-6">Welcome, {vendor.name}!</h1>
 
-                <div className="bg-white p-4 rounded-xl shadow-md">
-                    <div className="flex border-b border-gray-200 mb-4">
-                        <button
-                            onClick={() => setActiveTab('assigned')}
-                            className={`px-4 py-2 font-semibold text-sm transition-colors ${activeTab === 'assigned' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-                        >
-                            Assigned Orders ({assignedOrders.length})
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('processed')}
-                            className={`px-4 py-2 font-semibold text-sm transition-colors ${activeTab === 'processed' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}
-                        >
-                            Processed Orders ({processedOrders.length})
-                        </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="bg-white p-6 rounded-xl shadow-md flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-500">Completed Today</p>
+                                <p className="text-3xl font-bold text-gray-800">{completedTodayCount}</p>
+                            </div>
+                            <div className="text-green-500"><i className="fas fa-check-circle fa-2x"></i></div>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-md flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-500">Earnings Today</p>
+                                <p className="text-3xl font-bold text-gray-800">₹{totalEarningsToday.toFixed(2)}</p>
+                            </div>
+                            <div className="text-blue-500"><i className="fas fa-rupee-sign fa-2x"></i></div>
+                        </div>
                     </div>
 
-                    {activeTab === 'assigned' ? (
-                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} wasteEntriesMap={wasteEntriesMap} />
-                    ) : (
-                        <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
-                    )}
+                    <div className="bg-white rounded-xl shadow-md">
+                        <div className="border-b border-gray-200">
+                            <nav className="-mb-px flex gap-6 px-6">
+                                <button
+                                    onClick={() => setActiveTab('assigned')}
+                                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'assigned' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                                    Assigned Orders ({assignedOrders.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('processed')}
+                                    className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'processed' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
+                                    Processed Orders ({processedOrders.length})
+                                </button>
+                            </nav>
+                        </div>
+                        <div className="p-4">
+                            {activeTab === 'assigned' ? (
+                                <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} wasteEntriesMap={wasteEntriesMap} vendor={vendor} />
+                            ) : (
+                                <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
+                            )}
+                        </div>
+                    </div>
                 </div>
-            </main>
+            </div>
+            <Footer />
         </>
     );
 };

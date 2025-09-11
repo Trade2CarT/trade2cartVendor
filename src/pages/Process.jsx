@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
-import { db } from '../firebase';
-import { useVendor } from '../App';
+import { onAuthStateChanged } from 'firebase/auth';
+import { db, auth } from '../firebase';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
@@ -11,8 +11,8 @@ import SEO from '../components/SEO';
 const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
-    const vendor = useVendor();
 
+    const [vendor, setVendor] = useState(null);
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
     const [billItems, setBillItems] = useState([{ name: '', rate: '', weight: '', total: 0 }]);
@@ -22,17 +22,23 @@ const Process = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
-    // --- Definitive Data Fetching Logic ---
     useEffect(() => {
-        if (!assignmentId) {
-            toast.error("No order specified.");
-            navigate('/dashboard');
-            return;
-        }
-
         let isMounted = true;
 
-        // Listener for items
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+            if (user && isMounted) {
+                try {
+                    const vendorRef = ref(db, `vendors/${user.uid}`);
+                    const vendorSnapshot = await get(vendorRef);
+                    if (vendorSnapshot.exists()) {
+                        setVendor({ uid: user.uid, ...vendorSnapshot.val() });
+                    }
+                } catch (e) {
+                    toast.error("Could not fetch vendor details.");
+                }
+            }
+        });
+
         const itemsRef = ref(db, 'items');
         const unsubscribeItems = onValue(itemsRef, (snapshot) => {
             if (isMounted) {
@@ -42,7 +48,6 @@ const Process = () => {
             }
         });
 
-        // One-time fetch for assignment and customer
         const assignmentRef = ref(db, `assignments/${assignmentId}`);
         get(assignmentRef).then(assignmentSnapshot => {
             if (!isMounted || !assignmentSnapshot.exists()) {
@@ -71,13 +76,11 @@ const Process = () => {
             if (isMounted) setLoading(false);
         });
 
-
-        // Cleanup function
         return () => {
             isMounted = false;
+            unsubscribeAuth();
             unsubscribeItems();
         };
-
     }, [assignmentId, navigate]);
 
     useEffect(() => {
@@ -110,6 +113,8 @@ const Process = () => {
         newBillItems[index].weight = value;
         updateItemTotal(index, newBillItems);
     };
+
+    // ... (The rest of the functions in Process.jsx remain the same as the last version)
 
     const updateItemTotal = (index, items) => {
         const rate = parseFloat(items[index].rate) || 0;
@@ -248,12 +253,10 @@ const Process = () => {
                             <FaPlus size={12} /> Add Another Item
                         </button>
                     }
-
                     <div className="mt-8 p-4 bg-green-100 border-t-4 border-green-500 rounded-b-lg flex justify-between items-center">
                         <span className="text-xl font-bold text-green-800">Total Bill</span>
                         <span className="text-2xl font-bold text-green-800">₹{totalBill.toFixed(2)}</span>
                     </div>
-
                     {!billCalculated ? (
                         <div className="mt-6 flex gap-4">
                             <button onClick={() => navigate('/dashboard')} className="w-full py-3 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400">Cancel</button>
