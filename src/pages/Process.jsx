@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
 import { db } from '../firebase';
-import { useVendor } from '../App'; // <-- Import the useVendor hook
+import { useVendor } from '../App';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
@@ -11,7 +11,7 @@ import SEO from '../components/SEO';
 const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
-    const vendor = useVendor(); // <-- Get vendor data directly from context
+    const vendor = useVendor();
 
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
@@ -22,6 +22,7 @@ const Process = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
+    // --- CORRECTED DATA FETCHING LOGIC ---
     useEffect(() => {
         if (!assignmentId) {
             toast.error("No order specified.");
@@ -29,8 +30,9 @@ const Process = () => {
             return;
         }
 
-        const fetchData = async () => {
-            setLoading(true);
+        setLoading(true);
+
+        const fetchOrderData = async () => {
             try {
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
@@ -46,24 +48,32 @@ const Process = () => {
                     const userSnapshot = await get(userRef);
                     if (userSnapshot.exists()) setCustomer(userSnapshot.val());
                 }
-
-                const itemsRef = ref(db, 'items');
-                onValue(itemsRef, (snapshot) => {
-                    const itemsData = [];
-                    snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
-                    setMasterItems(itemsData);
-                });
-
             } catch (error) {
-                toast.error("Failed to load initial order data.");
+                toast.error("Failed to load order data.");
                 console.error(error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchData();
+
+        fetchOrderData();
+
+        // Set up the real-time listener for items and ensure it's cleaned up
+        const itemsRef = ref(db, 'items');
+        const unsubscribeItems = onValue(itemsRef, (snapshot) => {
+            const itemsData = [];
+            snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
+            setMasterItems(itemsData);
+        });
+
+        // This cleanup function is crucial and will run when the component is left
+        return () => {
+            unsubscribeItems();
+        };
+
     }, [assignmentId, navigate]);
 
+    // This effect for filtering items remains the same
     useEffect(() => {
         if (masterItems.length > 0 && vendor?.location) {
             const vendorLocation = vendor.location.toLowerCase();
@@ -259,4 +269,4 @@ const Process = () => {
     );
 };
 
-export default Process;
+export default Process;  
