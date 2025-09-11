@@ -22,7 +22,7 @@ const Process = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
-    // --- CORRECTED DATA FETCHING LOGIC ---
+    // --- Definitive Data Fetching Logic ---
     useEffect(() => {
         if (!assignmentId) {
             toast.error("No order specified.");
@@ -30,59 +30,56 @@ const Process = () => {
             return;
         }
 
-        const fetchOrderData = async () => {
-            setLoading(true);
-            try {
-                // Fetch assignment details first
-                const assignmentRef = ref(db, `assignments/${assignmentId}`);
-                const assignmentSnapshot = await get(assignmentRef);
+        let isMounted = true;
 
-                if (!assignmentSnapshot.exists()) {
-                    toast.error("Order not found.");
-                    return navigate('/dashboard');
-                }
-
-                // Use a local variable for the data right away
-                const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
-                setAssignment(assignmentData);
-
-                // Now, use the local assignmentData to fetch the customer
-                if (assignmentData.userId) {
-                    const userRef = ref(db, `users/${assignmentData.userId}`);
-                    const userSnapshot = await get(userRef);
-                    if (userSnapshot.exists()) {
-                        setCustomer(userSnapshot.val());
-                    }
-                } else {
-                    toast.error("Customer ID missing in order.");
-                }
-
-            } catch (error) {
-                toast.error("Failed to load initial order data.");
-                console.error(error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchOrderData();
-
-        // Set up the real-time listener for items and ensure it's cleaned up
+        // Listener for items
         const itemsRef = ref(db, 'items');
         const unsubscribeItems = onValue(itemsRef, (snapshot) => {
-            const itemsData = [];
-            snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
-            setMasterItems(itemsData);
+            if (isMounted) {
+                const itemsData = [];
+                snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
+                setMasterItems(itemsData);
+            }
         });
 
-        // Cleanup function to prevent memory leaks
+        // One-time fetch for assignment and customer
+        const assignmentRef = ref(db, `assignments/${assignmentId}`);
+        get(assignmentRef).then(assignmentSnapshot => {
+            if (!isMounted || !assignmentSnapshot.exists()) {
+                if (isMounted) toast.error("Order not found.");
+                return;
+            }
+
+            const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
+            setAssignment(assignmentData);
+
+            if (assignmentData.userId) {
+                const userRef = ref(db, `users/${assignmentData.userId}`);
+                return get(userRef);
+            }
+            return null;
+        }).then(userSnapshot => {
+            if (isMounted && userSnapshot && userSnapshot.exists()) {
+                setCustomer(userSnapshot.val());
+            }
+        }).catch(error => {
+            if (isMounted) {
+                toast.error("Failed to load initial order data.");
+                console.error(error);
+            }
+        }).finally(() => {
+            if (isMounted) setLoading(false);
+        });
+
+
+        // Cleanup function
         return () => {
+            isMounted = false;
             unsubscribeItems();
         };
 
     }, [assignmentId, navigate]);
 
-    // This effect for filtering items remains the same
     useEffect(() => {
         if (masterItems.length > 0 && vendor?.location) {
             const vendorLocation = vendor.location.toLowerCase();
