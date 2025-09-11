@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
 import { db } from '../firebase';
+import { useVendor } from '../App'; // <-- Import the useVendor hook
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
@@ -11,10 +12,7 @@ import SEO from '../components/SEO';
 const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
-    const { state } = useLocation();
-
-    // Use state for vendor location to handle reloads
-    const [vendorLocation, setVendorLocation] = useState(state?.vendorLocation || null);
+    const vendor = useVendor(); // <-- Get vendor data directly from context
 
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
@@ -35,6 +33,7 @@ const Process = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
+                // Fetch assignment and customer data
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
                 if (!assignmentSnapshot.exists()) {
@@ -44,21 +43,13 @@ const Process = () => {
                 const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
                 setAssignment(assignmentData);
 
-                // If vendorLocation was lost on reload, fetch it using the assignment data
-                if (!vendorLocation && assignmentData.vendorId) {
-                    const vendorRef = ref(db, `vendors/${assignmentData.vendorId}`);
-                    const vendorSnapshot = await get(vendorRef);
-                    if (vendorSnapshot.exists()) {
-                        setVendorLocation(vendorSnapshot.val().location);
-                    }
-                }
-
                 if (assignmentData.userId) {
                     const userRef = ref(db, `users/${assignmentData.userId}`);
                     const userSnapshot = await get(userRef);
                     if (userSnapshot.exists()) setCustomer(userSnapshot.val());
                 }
 
+                // Fetch all items
                 const itemsRef = ref(db, 'items');
                 onValue(itemsRef, (snapshot) => {
                     const itemsData = [];
@@ -74,17 +65,18 @@ const Process = () => {
             }
         };
         fetchData();
-    }, [assignmentId, navigate, vendorLocation]); // Dependency array now includes vendorLocation
+    }, [assignmentId, navigate]);
 
-    // This useEffect now filters items once vendorLocation is available
+    // This useEffect hook now uses the vendor's location from the context
     useEffect(() => {
-        if (masterItems.length > 0 && vendorLocation) {
+        if (masterItems.length > 0 && vendor?.location) {
+            const vendorLocation = vendor.location.toLowerCase();
             const filtered = masterItems.filter(
-                item => item.location && item.location.toLowerCase() === vendorLocation.toLowerCase()
+                item => item.location && item.location.toLowerCase() === vendorLocation
             );
             setFilteredItems(filtered);
         }
-    }, [masterItems, vendorLocation]);
+    }, [masterItems, vendor]); // <-- Dependency is now the vendor object
 
     const handleItemSelection = (index, selectedItemName) => {
         const newBillItems = [...billItems];
@@ -166,7 +158,8 @@ const Process = () => {
         }
     };
 
-    if (loading || !assignment || !customer || !vendorLocation) {
+    // Updated loading condition to wait for vendor data
+    if (loading || !assignment || !customer || !vendor) {
         return <Loader fullscreen />;
     }
 

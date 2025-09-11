@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component
+// OTP Modal Component (No changes here)
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -92,7 +92,9 @@ const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                navigate(`/process/${otpModalOrder.id}`, { state: { vendorLocation: vendor.location } });
+                // --- THIS LINE IS CORRECTED ---
+                // We no longer need to pass the location in the state
+                navigate(`/process/${otpModalOrder.id}`);
             } else {
                 toast.error("Invalid OTP. Please check again.");
             }
@@ -118,7 +120,6 @@ const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
                     </thead>
                     <tbody>
                         {assignedOrders.map(order => {
-                            // --- NEW: Find the original total from wasteEntriesMap ---
                             const originalWasteEntry = wasteEntriesMap[order.id];
                             const estimatedTotal = originalWasteEntry ? originalWasteEntry.total : '0.00';
 
