@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get } from 'firebase/database'; // Removed unused query functions
 import { auth, db } from './firebase.js';
 
 import Header from './components/Header.jsx';
@@ -15,11 +15,11 @@ import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 
-// --- Context to centrally manage vendor data ---
+// Context to centrally manage vendor data
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
-// --- Auth State Checker ---
+// Auth State Checker
 const AuthChecker = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -47,7 +47,8 @@ const AuthChecker = () => {
     return isRegistered ? <Navigate to="/dashboard" replace /> : <Navigate to="/register" replace />;
 };
 
-// --- ProtectedRoute to fetch and provide vendor data ---
+// --- CORRECTED ProtectedRoute ---
+// This is the key change to fix the error
 const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
@@ -58,7 +59,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
             if (user) {
                 setIsAuthenticated(true);
                 try {
-                    // Use the UID to fetch the vendor data directly
+                    // **THE FIX**: Fetch vendor data directly by UID
                     const vendorRef = ref(db, `vendors/${user.uid}`);
                     const snapshot = await get(vendorRef);
                     if (snapshot.exists()) {
@@ -78,13 +79,12 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // Provide vendor data to all child components
     return (
         <VendorContext.Provider value={vendor}>
             {hasLayout ? (
                 <div className="flex flex-col min-h-screen">
                     <Header handleSignOut={handleSignOut} />
-                    <main className="flex-grow pb-20"> {/* Padding for fixed footer */}
+                    <main className="flex-grow pb-20">
                         <Outlet />
                     </main>
                     <Footer />
@@ -96,7 +96,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     );
 };
 
-// --- PublicRoute ---
+// PublicRoute
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -113,7 +113,7 @@ const PublicRoute = () => {
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
-// --- Main App Component ---
+// Main App Component
 function App() {
     const handleSignOut = () => {
         signOut(auth).catch(error => toast.error("Failed to sign out."));
@@ -141,7 +141,6 @@ function App() {
                         <Route path="/register" element={<RegisterForm />} />
                     </Route>
 
-                    {/* Catch-all route to handle undefined paths */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
