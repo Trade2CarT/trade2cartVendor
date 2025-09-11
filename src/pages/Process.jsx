@@ -12,7 +12,9 @@ const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
     const { state } = useLocation();
-    const vendorLocation = state?.vendorLocation || 'Unknown';
+
+    // Use state for vendor location to handle reloads
+    const [vendorLocation, setVendorLocation] = useState(state?.vendorLocation || null);
 
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
@@ -42,6 +44,15 @@ const Process = () => {
                 const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
                 setAssignment(assignmentData);
 
+                // If vendorLocation was lost on reload, fetch it using the assignment data
+                if (!vendorLocation && assignmentData.vendorId) {
+                    const vendorRef = ref(db, `vendors/${assignmentData.vendorId}`);
+                    const vendorSnapshot = await get(vendorRef);
+                    if (vendorSnapshot.exists()) {
+                        setVendorLocation(vendorSnapshot.val().location);
+                    }
+                }
+
                 if (assignmentData.userId) {
                     const userRef = ref(db, `users/${assignmentData.userId}`);
                     const userSnapshot = await get(userRef);
@@ -63,8 +74,9 @@ const Process = () => {
             }
         };
         fetchData();
-    }, [assignmentId, navigate]);
+    }, [assignmentId, navigate, vendorLocation]); // Dependency array now includes vendorLocation
 
+    // This useEffect now filters items once vendorLocation is available
     useEffect(() => {
         if (masterItems.length > 0 && vendorLocation) {
             const filtered = masterItems.filter(
@@ -81,9 +93,7 @@ const Process = () => {
             setBillItems(newBillItems);
             return;
         }
-
         const matchedItem = filteredItems.find(item => item.name === selectedItemName);
-
         if (matchedItem) {
             newBillItems[index].name = matchedItem.name;
             newBillItems[index].rate = matchedItem.rate;
@@ -156,7 +166,7 @@ const Process = () => {
         }
     };
 
-    if (loading || !assignment || !customer) {
+    if (loading || !assignment || !customer || !vendorLocation) {
         return <Loader fullscreen />;
     }
 
