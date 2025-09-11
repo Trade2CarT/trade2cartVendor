@@ -19,7 +19,7 @@ import AccountPage from './pages/AccountPage.jsx';
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
-// --- Auth State Checker (Your original code) ---
+// --- Auth State Checker ---
 const AuthChecker = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -47,7 +47,7 @@ const AuthChecker = () => {
     return isRegistered ? <Navigate to="/dashboard" replace /> : <Navigate to="/register" replace />;
 };
 
-// --- Updated ProtectedRoute to fetch data ---
+// --- ProtectedRoute to fetch and provide vendor data ---
 const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
@@ -57,12 +57,12 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setIsAuthenticated(true);
-                // Fetch vendor data here to make it available globally
                 try {
-                    const vendorQuery = query(ref(db, 'vendors'), orderByChild('phone'), equalTo(user.phoneNumber));
-                    const snapshot = await get(vendorQuery);
+                    // Use the UID to fetch the vendor data directly
+                    const vendorRef = ref(db, `vendors/${user.uid}`);
+                    const snapshot = await get(vendorRef);
                     if (snapshot.exists()) {
-                        setVendor(Object.values(snapshot.val())[0]);
+                        setVendor(snapshot.val());
                     }
                 } catch (error) {
                     console.error("Firebase fetch error:", error);
@@ -78,7 +78,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // Provide vendor data to all child components (Header, Footer, Outlet)
+    // Provide vendor data to all child components
     return (
         <VendorContext.Provider value={vendor}>
             {hasLayout ? (
@@ -96,7 +96,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     );
 };
 
-// --- PublicRoute (Your original code) ---
+// --- PublicRoute ---
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -113,7 +113,7 @@ const PublicRoute = () => {
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
-// --- Main App Component (Your original code) ---
+// --- Main App Component ---
 function App() {
     const handleSignOut = () => {
         signOut(auth).catch(error => toast.error("Failed to sign out."));
@@ -141,7 +141,7 @@ function App() {
                         <Route path="/register" element={<RegisterForm />} />
                     </Route>
 
-                    {/* --- ADD THIS CATCH-ALL ROUTE --- */}
+                    {/* Catch-all route to handle undefined paths */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>

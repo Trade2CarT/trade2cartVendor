@@ -8,7 +8,6 @@ import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons
 import Loader from './Loader';
 import SEO from '../components/SEO';
 
-// --- Main Process Component ---
 const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
@@ -33,7 +32,6 @@ const Process = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch assignment and customer data
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
                 if (!assignmentSnapshot.exists()) {
@@ -49,7 +47,6 @@ const Process = () => {
                     if (userSnapshot.exists()) setCustomer(userSnapshot.val());
                 }
 
-                // Fetch all items
                 const itemsRef = ref(db, 'items');
                 onValue(itemsRef, (snapshot) => {
                     const itemsData = [];
@@ -67,7 +64,6 @@ const Process = () => {
         fetchData();
     }, [assignmentId, navigate]);
 
-    // This useEffect hook now uses the vendor's location from the context
     useEffect(() => {
         if (masterItems.length > 0 && vendor?.location) {
             const vendorLocation = vendor.location.toLowerCase();
@@ -76,7 +72,7 @@ const Process = () => {
             );
             setFilteredItems(filtered);
         }
-    }, [masterItems, vendor]); // <-- Dependency is now the vendor object
+    }, [masterItems, vendor]);
 
     const handleItemSelection = (index, selectedItemName) => {
         const newBillItems = [...billItems];
@@ -158,7 +154,6 @@ const Process = () => {
         }
     };
 
-    // Updated loading condition to wait for vendor data
     if (loading || !assignment || !customer || !vendor) {
         return <Loader fullscreen />;
     }

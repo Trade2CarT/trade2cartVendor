@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
-import { useVendor } from '../App';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (No changes here)
+// OTP Modal Component (no changes needed here)
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -74,7 +73,6 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
 
 const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
     const navigate = useNavigate();
-    const vendor = useVendor();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
     const [verifyLoading, setVerifyLoading] = useState(false);
 
@@ -92,8 +90,7 @@ const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                // --- THIS LINE IS CORRECTED ---
-                // We no longer need to pass the location in the state
+                // Corrected navigation: No state needed
                 navigate(`/process/${otpModalOrder.id}`);
             } else {
                 toast.error("Invalid OTP. Please check again.");
