@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
-import { db } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth'; // Import auth listener
+import { db, auth } from '../firebase'; // Import auth
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
@@ -12,7 +13,9 @@ const Process = () => {
     const navigate = useNavigate();
     const { assignmentId } = useParams();
     const { state } = useLocation();
-    const vendorLocation = state?.vendorLocation || 'Unknown';
+
+    // Use state for vendor location to handle reloads
+    const [vendor, setVendor] = useState(null);
 
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
@@ -23,6 +26,7 @@ const Process = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
+    // --- Definitive Data Fetching Logic ---
     useEffect(() => {
         if (!assignmentId) {
             toast.error("No order specified.");
@@ -30,49 +34,74 @@ const Process = () => {
             return;
         }
 
+        let isMounted = true;
+
         const fetchData = async () => {
-            setLoading(true);
             try {
+                // First, get the logged-in vendor's details using their auth UID
+                const user = auth.currentUser;
+                if (user) {
+                    const vendorRef = ref(db, `vendors/${user.uid}`);
+                    const vendorSnapshot = await get(vendorRef);
+                    if (isMounted && vendorSnapshot.exists()) {
+                        setVendor(vendorSnapshot.val());
+                    }
+                }
+
+                // Then, get the assignment and customer details
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
-                if (!assignmentSnapshot.exists()) {
-                    toast.error("Order not found.");
-                    return navigate('/dashboard');
+                if (!isMounted || !assignmentSnapshot.exists()) {
+                    if (isMounted) toast.error("Order not found.");
+                    return;
                 }
+
                 const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
                 setAssignment(assignmentData);
 
                 if (assignmentData.userId) {
                     const userRef = ref(db, `users/${assignmentData.userId}`);
                     const userSnapshot = await get(userRef);
-                    if (userSnapshot.exists()) setCustomer(userSnapshot.val());
+                    if (isMounted && userSnapshot.exists()) {
+                        setCustomer(userSnapshot.val());
+                    }
                 }
 
-                const itemsRef = ref(db, 'items');
-                onValue(itemsRef, (snapshot) => {
-                    const itemsData = [];
-                    snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
-                    setMasterItems(itemsData);
-                });
-
             } catch (error) {
-                toast.error("Failed to load initial order data.");
-                console.error(error);
+                if (isMounted) toast.error("Failed to load initial data.");
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
+
         fetchData();
+
+        const itemsRef = ref(db, 'items');
+        const unsubscribeItems = onValue(itemsRef, (snapshot) => {
+            if (isMounted) {
+                const itemsData = [];
+                snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
+                setMasterItems(itemsData);
+            }
+        });
+
+        return () => {
+            isMounted = false;
+            unsubscribeItems();
+        };
+
     }, [assignmentId, navigate]);
 
+    // This useEffect now correctly uses the fetched vendor's location
     useEffect(() => {
-        if (masterItems.length > 0 && vendorLocation) {
+        if (masterItems.length > 0 && vendor?.location) {
+            const vendorLocation = vendor.location.toLowerCase();
             const filtered = masterItems.filter(
-                item => item.location.toLowerCase() === vendorLocation.toLowerCase()
+                item => item.location && item.location.toLowerCase() === vendorLocation
             );
             setFilteredItems(filtered);
         }
-    }, [masterItems, vendorLocation]);
+    }, [masterItems, vendor]);
 
     const handleItemSelection = (index, selectedItemName) => {
         const newBillItems = [...billItems];
@@ -81,9 +110,7 @@ const Process = () => {
             setBillItems(newBillItems);
             return;
         }
-
         const matchedItem = filteredItems.find(item => item.name === selectedItemName);
-
         if (matchedItem) {
             newBillItems[index].name = matchedItem.name;
             newBillItems[index].rate = matchedItem.rate;
@@ -124,34 +151,30 @@ const Process = () => {
 
     const handleSubmitBill = async () => {
         setIsSubmitting(true);
-        // src/pages/Process.jsx
+        try {
+            const billData = {
+                assignmentID: assignmentId,
+                vendorId: assignment.vendorId,
+                userId: assignment.userId,
+                billItems: billItems.map(({ ...item }) => item),
+                totalBill,
+                timestamp: new Date().toISOString(),
+                mobile: assignment.mobile,
+            };
 
-// ... inside the handleSubmitBill function
-try {
-    const billData = {
-        assignmentID: assignmentId,
-        vendorId: assignment.vendorId,
-        userId: assignment.userId,
-        billItems: billItems.map(({ ...item }) => item),
-        totalBill,
-        timestamp: new Date().toISOString(),
-        mobile: assignment.mobile,
-    };
+            const updates = {};
+            const newBillRef = push(ref(db, 'bills'));
+            updates[`/bills/${newBillRef.key}`] = billData;
+            updates[`/assignments/${assignmentId}/status`] = 'completed';
+            updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
+            updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString();
+            updates[`/users/${assignment.userId}/Status`] = 'available';
+            updates[`/users/${assignment.userId}/otp`] = null;
+            updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
 
-    const updates = {};
-    const newBillRef = push(ref(db, 'bills'));
-    updates[`/bills/${newBillRef.key}`] = billData;
-    updates[`/assignments/${assignmentId}/status`] = 'completed';
-    updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
-    updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString(); // <-- ADD THIS LINE
-    updates[`/users/${assignment.userId}/Status`] = 'available';
-    updates[`/users/${assignment.userId}/otp`] = null;
-    updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
-
-    await update(ref(db), updates);
-    toast.success("Bill saved and order completed!");
-    navigate('/dashboard');
-
+            await update(ref(db), updates);
+            toast.success("Bill saved and order completed!");
+            navigate('/dashboard');
         } catch (error) {
             console.error("Failed to submit bill:", error);
             toast.error("An error occurred. Please try again.");
@@ -160,7 +183,7 @@ try {
         }
     };
 
-    if (loading || !assignment || !customer) {
+    if (loading || !assignment || !customer || !vendor) {
         return <Loader fullscreen />;
     }
 
