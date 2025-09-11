@@ -140,6 +140,9 @@ function App() {
                     <Route element={<ProtectedRoute hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                     </Route>
+
+                    {/* --- ADD THIS CATCH-ALL ROUTE --- */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
         </>
