@@ -1,289 +1,297 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
-import { ref, get, onValue, push, update } from 'firebase/database';
-import { onAuthStateChanged } from 'firebase/auth';
-import { db, auth } from '../firebase';
-import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
-import Loader from './Loader';
-import SEO from '../components/SEO';
+import React, { useState, useEffect } from "react";
+import { db, auth } from "../firebase";
+import { ref, onValue, push, set } from "firebase/database";
+import { onAuthStateChanged } from "firebase/auth";
+import Header from "../components/Header";
+import SEO from "../components/SEO";
 
-const Process = () => {
-    const navigate = useNavigate();
-    const { assignmentId } = useParams();
-
-    const [vendor, setVendor] = useState(null);
-    const [assignment, setAssignment] = useState(null);
-    const [customer, setCustomer] = useState(null);
-    const [billItems, setBillItems] = useState([{ name: '', rate: '', weight: '', total: 0 }]);
+function Process() {
     const [masterItems, setMasterItems] = useState([]);
-    const [filteredItems, setFilteredItems] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [billCalculated, setBillCalculated] = useState(false);
+    const [items, setItems] = useState([]);
+    const [billItems, setBillItems] = useState([]);
+    const [selectedItem, setSelectedItem] = useState("");
+    const [weight, setWeight] = useState("");
+    const [totalBill, setTotalBill] = useState(0);
+    const [vendor, setVendor] = useState(null);
+    const [userId, setUserId] = useState("");
+    const [mobileNumber, setMobileNumber] = useState("");
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [assignmentID, setAssignmentID] = useState(null); // New state for assignment ID
 
     useEffect(() => {
-        if (!assignmentId) {
-            toast.error("No order specified.");
-            navigate('/dashboard');
-            return;
-        }
-
-        let isMounted = true;
-        setLoading(true);
-
-        const fetchData = async () => {
-            try {
-                // Get the currently authenticated vendor's UID
-                const user = auth.currentUser;
-                if (user && isMounted) {
-                    const vendorRef = ref(db, `vendors/${user.uid}`);
-                    const vendorSnapshot = await get(vendorRef);
-                    if (isMounted && vendorSnapshot.exists()) {
-                        setVendor(vendorSnapshot.val());
+        const fetchVendorData = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const vendorRef = ref(db, `vendors/${user.uid}`);
+                onValue(vendorRef, (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        setVendor(data);
                     }
-                }
-
-                // Fetch the specific assignment
-                const assignmentRef = ref(db, `assignments/${assignmentId}`);
-                const assignmentSnapshot = await get(assignmentRef);
-                if (!isMounted || !assignmentSnapshot.exists()) {
-                    if (isMounted) toast.error("Order not found.");
-                    return;
-                }
-
-                const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
-                setAssignment(assignmentData);
-
-                // Fetch the customer using the userId from the assignment
-                if (assignmentData.userId) {
-                    const userRef = ref(db, `users/${assignmentData.userId}`);
-                    const userSnapshot = await get(userRef);
-                    if (isMounted && userSnapshot.exists()) {
-                        setCustomer(userSnapshot.val());
-                    }
-                }
-
-            } catch (error) {
-                if (isMounted) toast.error("Failed to load critical data.");
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        };
-
-        fetchData();
-
-        const itemsRef = ref(db, 'items');
-        const unsubscribeItems = onValue(itemsRef, (snapshot) => {
-            if (isMounted) {
-                const itemsData = [];
-                snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
-                setMasterItems(itemsData);
+                });
+            } else {
+                setVendor(null);
             }
         });
 
-        // Cleanup function
-        return () => {
-            isMounted = false;
-            unsubscribeItems();
-        };
+        return () => fetchVendorData();
+    }, []);
 
-    }, [assignmentId, navigate]);
-
-    // This useEffect hook filters items correctly, ignoring case
+    //fetches all items from the database
     useEffect(() => {
-        if (masterItems.length > 0 && vendor?.location) {
+        const itemsRef = ref(db, "items");
+        // Firebase listener
+        const unsubscribe = onValue(itemsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const allItems = Object.keys(data).map((key) => ({
+                    id: key,
+                    ...data[key],
+                }));
+                setMasterItems(allItems);
+            } else {
+                setMasterItems([]);
+            }
+        });
+
+        // Cleanup function: This will detach the listener when the component unmounts
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (vendor && masterItems.length > 0) {
             const vendorLocation = vendor.location.toLowerCase();
-            const filtered = masterItems.filter(
-                item => item.location && item.location.toLowerCase() === vendorLocation
+            const filteredItems = masterItems.filter(
+                (item) => item.location && item.location.toLowerCase() === vendorLocation
             );
-            setFilteredItems(filtered);
+            setItems(filteredItems);
+        } else {
+            setItems([]);
         }
-    }, [masterItems, vendor]);
+    }, [vendor, masterItems]);
 
-    const handleItemSelection = (index, selectedItemName) => {
-        const newBillItems = [...billItems];
-        if (!selectedItemName) {
-            newBillItems[index] = { name: '', rate: '', weight: '', total: 0 };
-            setBillItems(newBillItems);
-            return;
+    const handleAddItem = () => {
+        if (selectedItem && weight) {
+            const item = items.find((i) => i.name === selectedItem);
+            if (item) {
+                const total = parseFloat(weight) * parseFloat(item.rate);
+                const newBillItem = {
+                    name: item.name,
+                    weight: weight,
+                    rate: item.rate,
+                    total: total,
+                };
+                setBillItems([...billItems, newBillItem]);
+                setTotalBill(totalBill + total);
+                setSelectedItem("");
+                setWeight("");
+            }
         }
-        const matchedItem = filteredItems.find(item => item.name === selectedItemName);
-        if (matchedItem) {
-            newBillItems[index].name = matchedItem.name;
-            newBillItems[index].rate = matchedItem.rate;
+    };
+
+    // New useEffect to find the assignment ID
+    useEffect(() => {
+        if (userId) {
+            const assignmentsRef = ref(db, "assignments");
+            const unsubscribe = onValue(assignmentsRef, (snapshot) => {
+                const assignments = snapshot.val();
+                let foundAssignmentID = null;
+                for (const id in assignments) {
+                    if (assignments[id].userId === userId && assignments[id].status === "assigned") {
+                        foundAssignmentID = id;
+                        break;
+                    }
+                }
+                setAssignmentID(foundAssignmentID);
+            });
+            return () => unsubscribe();
         }
-        updateItemTotal(index, newBillItems);
-    };
+    }, [userId]);
 
-    const handleWeightChange = (index, value) => {
-        const newBillItems = [...billItems];
-        newBillItems[index].weight = value;
-        updateItemTotal(index, newBillItems);
-    };
-
-    // ... (The rest of the functions in Process.jsx are correct and do not need to be changed)
-
-    const updateItemTotal = (index, items) => {
-        const rate = parseFloat(items[index].rate) || 0;
-        const weight = parseFloat(items[index].weight) || 0;
-        items[index].total = rate * weight;
-        setBillItems(items);
-    };
-
-    const addAnotherItem = () => {
-        setBillItems([...billItems, { name: '', rate: '', weight: '', total: 0 }]);
-    };
-
-    const removeItem = (index) => {
-        setBillItems(billItems.filter((_, i) => i !== index));
-    };
-
-    const totalBill = billItems.reduce((acc, item) => acc + (item.total || 0), 0);
-
-    const handleCalculateBill = () => {
-        if (billItems.some(item => !item.name || !item.rate || !item.weight || parseFloat(item.rate) <= 0 || parseFloat(item.weight) <= 0)) {
-            return toast.error("Please fill all fields for each item with valid numbers.");
-        }
-        setBillCalculated(true);
-        toast.success("Total calculated. Please confirm to complete.");
-    };
 
     const handleSubmitBill = async () => {
-        setIsSubmitting(true);
-        try {
+        if (billItems.length > 0 && userId) {
             const billData = {
-                assignmentID: assignmentId,
-                vendorId: assignment.vendorId,
-                userId: assignment.userId,
-                billItems: billItems.map(({ ...item }) => item),
-                totalBill,
+                userId: userId,
+                vendorId: auth.currentUser.uid,
+                mobile: mobileNumber,
+                billItems: billItems,
+                totalBill: totalBill,
                 timestamp: new Date().toISOString(),
-                mobile: assignment.mobile,
+                assignmentID: assignmentID,
             };
 
-            const updates = {};
             const newBillRef = push(ref(db, 'bills'));
-            updates[`/bills/${newBillRef.key}`] = billData;
-            updates[`/assignments/${assignmentId}/status`] = 'completed';
-            updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
-            updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString();
-            updates[`/users/${assignment.userId}/Status`] = 'available';
-            updates[`/users/${assignment.userId}/otp`] = null;
-            updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
+            await set(newBillRef, billData);
 
-            await update(ref(db), updates);
-            toast.success("Bill saved and order completed!");
-            navigate('/dashboard');
-        } catch (error) {
-            console.error("Failed to submit bill:", error);
-            toast.error("An error occurred. Please try again.");
-        } finally {
-            setIsSubmitting(false);
+            // Update the assignment status to 'processed'
+            if (assignmentID) {
+                const assignmentRef = ref(db, `assignments/${assignmentID}`);
+                const updates = {};
+                updates['status'] = 'processed';
+                await update(assignmentRef, updates);
+            }
+
+            // Also update the waste entries' isAssigned status
+            const wasteEntriesRef = ref(db, 'wasteEntries');
+            const wasteSnapshot = await get(wasteEntriesRef);
+            if (wasteSnapshot.exists()) {
+                const updates = {};
+                const assignment = (await get(ref(db, `assignments/${assignmentID}`))).val();
+                if (assignment && assignment.entryIds) {
+                    assignment.entryIds.forEach(entryId => {
+                        updates[`${entryId}/isAssigned`] = false;
+                    });
+                    await update(wasteEntriesRef, updates);
+                }
+            }
+
+            setShowConfirmation(true);
+            setTimeout(() => {
+                setShowConfirmation(false);
+                setBillItems([]);
+                setTotalBill(0);
+                setUserId("");
+                setMobileNumber("");
+                setAssignmentID(null);
+            }, 3000);
+        } else {
+            alert("Please add items to the bill and ensure a user is selected.");
         }
     };
 
-    if (loading || !assignment || !customer || !vendor) {
-        return <Loader fullscreen />;
-    }
+    const handleUserSearch = () => {
+        if (mobileNumber) {
+            const usersRef = ref(db, "users");
+            onValue(usersRef, (snapshot) => {
+                const users = snapshot.val();
+                const foundUser = Object.keys(users).find(
+                    (key) => users[key].mobile === mobileNumber
+                );
+                if (foundUser) {
+                    setUserId(foundUser);
+                } else {
+                    alert("User not found!");
+                    setUserId("");
+                }
+            });
+        }
+    };
 
     return (
         <>
-            <SEO title={`Process Order - ${assignmentId.slice(-6)}`} description="Generate bill for the customer and complete the scrap pickup order." />
-            <div className="p-4 md:p-8">
-                <div className="max-w-2xl mx-auto">
-                    <h1 className="text-3xl font-bold text-gray-800 mb-6">Generate Bill</h1>
-
-                    <div className="bg-white p-4 rounded-xl shadow-md mb-6">
-                        <h2 className="text-lg font-semibold text-gray-700 mb-3">Customer Details</h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center gap-3"><FaUser className="text-gray-400" /> <span>{customer.name || 'N/A'}</span></div>
-                            <div className="flex items-center gap-3"><FaPhoneAlt className="text-gray-400" /> <span>{customer.phone}</span></div>
-                            <div className="flex items-center gap-3 col-span-full"><FaMapMarkerAlt className="text-gray-400" /> <span>{customer.address || 'No address provided'}</span></div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {billItems.map((item, index) => (
-                            <div key={index} className="bg-white p-4 rounded-xl shadow-md relative">
-                                {billItems.length > 1 && !billCalculated && (
-                                    <button onClick={() => removeItem(index)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500">
-                                        <FaTrash />
-                                    </button>
-                                )}
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                                    <div className="md:col-span-2">
-                                        <label className="text-xs font-medium text-gray-600">Item Name</label>
-                                        <select
-                                            value={item.name}
-                                            onChange={(e) => handleItemSelection(index, e.target.value)}
-                                            className="w-full mt-1 p-2 border rounded-md bg-white"
-                                            disabled={billCalculated}
-                                        >
-                                            <option value="">-- Select an item --</option>
-                                            {filteredItems.map(filteredItem => (
-                                                <option key={filteredItem.id} value={filteredItem.name}>
-                                                    {filteredItem.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-600">Rate (₹)</label>
-                                        <input
-                                            type="number"
-                                            value={item.rate}
-                                            placeholder="0.00"
-                                            className="w-full mt-1 p-2 border rounded-md bg-gray-100"
-                                            readOnly
-                                            disabled={billCalculated}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-600">Weight/Unit</label>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            value={item.weight}
-                                            onChange={(e) => handleWeightChange(index, e.target.value)}
-                                            placeholder="e.g., 1.5"
-                                            className="w-full mt-1 p-2 border rounded-md"
-                                            disabled={billCalculated}
-                                        />
-                                    </div>
-                                </div>
-                                <p className="text-right font-semibold mt-2 text-gray-700">Item Total: ₹{item.total.toFixed(2)}</p>
+            <SEO
+                title="Process Order - Trade2Cart Vendor"
+                description="Process customer orders, weigh items, and generate bills for scrap collection."
+                keywords="scrap collection, order processing, bill generation, trade2cart vendor"
+            />
+            <Header />
+            <div className="container mx-auto p-4">
+                <h1 className="text-2xl font-bold mb-4">Process Order</h1>
+                {vendor ? (
+                    <div>
+                        <div className="mb-4">
+                            <label className="block mb-2">Customer Mobile Number</label>
+                            <div className="flex">
+                                <input
+                                    type="text"
+                                    value={mobileNumber}
+                                    onChange={(e) => setMobileNumber(e.target.value)}
+                                    className="border p-2 flex-grow"
+                                    placeholder="Enter 10-digit mobile number"
+                                />
+                                <button
+                                    onClick={handleUserSearch}
+                                    className="bg-blue-500 text-white p-2 ml-2"
+                                >
+                                    Search
+                                </button>
                             </div>
-                        ))}
-                    </div>
-                    {!billCalculated &&
-                        <button onClick={addAnotherItem} className="flex items-center gap-2 text-blue-600 font-semibold mt-4 hover:underline">
-                            <FaPlus size={12} /> Add Another Item
+                            {userId && <p className="text-green-500">User found: {userId}</p>}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block mb-2">Item Name</label>
+                                {items.length > 0 ? (
+                                    <select
+                                        value={selectedItem}
+                                        onChange={(e) => setSelectedItem(e.target.value)}
+                                        className="border p-2 w-full"
+                                    >
+                                        <option value="">Select an item</option>
+                                        {items.map((item) => (
+                                            <option key={item.id} value={item.name}>
+                                                {item.name} ({item.rate}/{item.unit})
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <p className="text-red-500">No items available for your location.</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block mb-2">Weight/Quantity</label>
+                                <input
+                                    type="number"
+                                    value={weight}
+                                    onChange={(e) => setWeight(e.target.value)}
+                                    className="border p-2 w-full"
+                                />
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleAddItem}
+                            className="bg-green-500 text-white p-2 mb-4 w-full"
+                        >
+                            Add Item
                         </button>
-                    }
-                    <div className="mt-8 p-4 bg-green-100 border-t-4 border-green-500 rounded-b-lg flex justify-between items-center">
-                        <span className="text-xl font-bold text-green-800">Total Bill</span>
-                        <span className="text-2xl font-bold text-green-800">₹{totalBill.toFixed(2)}</span>
+
+                        <div>
+                            <h2 className="text-xl font-bold mb-2">Bill Details</h2>
+                            <table className="w-full border">
+                                <thead>
+                                    <tr>
+                                        <th className="border p-2">Item Name</th>
+                                        <th className="border p-2">Weight/Qty</th>
+                                        <th className="border p-2">Rate</th>
+                                        <th className="border p-2">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {billItems.map((item, index) => (
+                                        <tr key={index}>
+                                            <td className="border p-2">{item.name}</td>
+                                            <td className="border p-2">{item.weight}</td>
+                                            <td className="border p-2">{item.rate}</td>
+                                            <td className="border p-2">{item.total.toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="text-right font-bold text-xl mt-4">
+                                Total Bill: ₹{totalBill.toFixed(2)}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleSubmitBill}
+                            className="bg-blue-500 text-white p-2 mt-4 w-full"
+                        >
+                            Submit Bill
+                        </button>
+                        {showConfirmation && (
+                            <div className="mt-4 p-4 bg-green-200 text-green-800">
+                                Bill submitted successfully!
+                            </div>
+                        )}
                     </div>
-                    {!billCalculated ? (
-                        <div className="mt-6 flex gap-4">
-                            <button onClick={() => navigate('/dashboard')} className="w-full py-3 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400">Cancel</button>
-                            <button onClick={handleCalculateBill} className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700">
-                                Calculate Total
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="mt-6 flex gap-4">
-                            <button onClick={() => setBillCalculated(false)} disabled={isSubmitting} className="w-full py-3 bg-gray-300 text-gray-800 font-bold rounded-lg hover:bg-gray-400">Edit</button>
-                            <button onClick={handleSubmitBill} disabled={isSubmitting} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-400">
-                                {isSubmitting ? 'Saving...' : 'Confirm & Complete Order'}
-                            </button>
-                        </div>
-                    )}
-                </div>
+                ) : (
+                    <p>Loading vendor details...</p>
+                )}
             </div>
         </>
     );
-};
+}
 
-export default Process; 
+export default Process;
