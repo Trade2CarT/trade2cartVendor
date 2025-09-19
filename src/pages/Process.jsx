@@ -75,9 +75,10 @@ const Process = () => {
         fetchData();
     }, [assignmentId, navigate]);
 
-    // Effect to set up a real-time listener for the master items list
+    // UPDATED: Effect to set up a real-time listener for the master items list
     useEffect(() => {
         const itemsRef = ref(db, 'items');
+        // This listener will automatically update when your Firebase data changes
         const unsubscribe = onValue(itemsRef, (snapshot) => {
             const itemsData = [];
             snapshot.forEach(child => itemsData.push({ id: child.key, ...child.val() }));
@@ -85,7 +86,7 @@ const Process = () => {
             setLoading(false); // Stop loading once items are fetched
         });
 
-        // Cleanup: Detach the listener when the component unmounts
+        // Cleanup: This detaches the listener when the component unmounts to prevent errors
         return () => unsubscribe();
     }, []);
 
@@ -100,13 +101,12 @@ const Process = () => {
         }
     }, [masterItems, vendor]);
 
-    // Using useCallback for functions to prevent unnecessary re-renders
-    const updateItemTotal = useCallback((index, items) => {
+    const updateItemTotal = (index, items) => {
         const rate = parseFloat(items[index].rate) || 0;
         const weight = parseFloat(items[index].weight) || 0;
         items[index].total = rate * weight;
-        setBillItems([...items]);
-    }, []);
+        setBillItems([...items]); // Use spread to ensure re-render
+    };
 
     const handleItemSelection = (index, selectedItemName) => {
         const newBillItems = [...billItems];
@@ -151,12 +151,12 @@ const Process = () => {
         try {
             const billData = {
                 assignmentID: assignmentId,
-                vendorId: auth.currentUser.uid, // Use current user UID directly
+                vendorId: auth.currentUser.uid,
                 userId: assignment.userId,
-                billItems: billItems.map(({ ...item }) => item), // Clean items for DB
+                billItems: billItems.map(({ ...item }) => item),
                 totalBill,
                 timestamp: new Date().toISOString(),
-                mobile: customer.phone, // Use customer state for mobile
+                mobile: customer.phone,
             };
 
             const updates = {};
@@ -165,7 +165,7 @@ const Process = () => {
             updates[`/assignments/${assignmentId}/status`] = 'completed';
             updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
             updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString();
-            updates[`/users/${assignment.userId}/Status`] = 'available'; // Simplified status
+            updates[`/users/${assignment.userId}/Status`] = 'available';
             updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
 
             await update(ref(db), updates);
