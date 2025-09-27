@@ -118,7 +118,7 @@ const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
                     <tbody>
                         {assignedOrders.map(order => {
                             const originalWasteEntry = wasteEntriesMap[order.id];
-                            const estimatedTotal = originalWasteEntry ? originalWasteEntry.total : '0.00';
+                            const estimatedTotal = originalWasteEntry ? originalWasteEntry.totalAmount : '0.00';
 
                             return (
                                 <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
