@@ -18,7 +18,9 @@ import {
     FaUser,
     FaMapPin,
     FaMapMarkerAlt,
-    FaIdCard
+    FaIdCard,
+    FaQuestionCircle,
+    FaPaperPlane
 } from 'react-icons/fa';
 
 const InfoCard = ({ icon, label, value }) => (
@@ -31,12 +33,32 @@ const InfoCard = ({ icon, label, value }) => (
     </div>
 );
 
+const faqs = [
+    {
+        q: 'How do I get new orders?',
+        a: 'New orders are assigned to you by our admin team based on your location and availability. Keep an eye on the "Assigned Orders" tab on your dashboard.'
+    },
+    {
+        q: 'When will I receive payment for orders?',
+        a: 'You are responsible for collecting payment directly from the customer at the time of pickup. Trade2Cart does not handle transactions between you and the customer.'
+    },
+    {
+        q: 'What if the customer provides an incorrect OTP?',
+        a: 'Please double-check the OTP with the customer from their app. If it still fails, you can contact our support team for assistance.'
+    },
+    {
+        q: 'How are the scrap prices determined?',
+        a: 'You can view the current trade prices for your registered location by tapping the "Today\'s Trade Price" button on your dashboard.'
+    }
+];
+
 const AccountPage = () => {
     const navigate = useNavigate();
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
     const [modalContent, setModalContent] = useState(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [openFaq, setOpenFaq] = useState(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -65,6 +87,10 @@ const AccountPage = () => {
 
     const handleSignOut = () => {
         signOut(auth).catch((error) => toast.error("Failed to sign out."));
+    };
+
+    const toggleFaq = (index) => {
+        setOpenFaq(openFaq === index ? null : index);
     };
 
     if (loading) {
@@ -106,6 +132,40 @@ const AccountPage = () => {
                                 <InfoCard icon={<FaIdCard />} label="Driving License" value={vendor?.license} />
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-md">
+                    <h3 className="text-lg font-bold text-gray-800 mb-4 px-2">Help & Support</h3>
+                    <div className="space-y-2">
+                        <a
+                            href={`mailto:trade@trade2cart.in?subject=Vendor Query: ${vendor?.name} (${vendor?.phone})`}
+                            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                        >
+                            <div className="flex items-center gap-4">
+                                <FaPaperPlane className="text-xl text-blue-500" />
+                                <span>Raise a Query</span>
+                            </div>
+                            <FaChevronRight className="text-gray-400" />
+                        </a>
+                        <p className="text-xs text-gray-500 px-4">Your query will be addressed within 24 hours.</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-md">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2 px-2">Frequently Asked Questions</h3>
+                    <div className="space-y-2">
+                        {faqs.map((faq, index) => (
+                            <div key={index} className="border-b border-gray-200 last:border-b-0">
+                                <button onClick={() => toggleFaq(index)} className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 hover:bg-gray-50 rounded-lg transition-colors">
+                                    <span>{faq.q}</span>
+                                    <FaChevronDown className={`text-gray-500 transition-transform duration-200 ${openFaq === index ? 'rotate-180' : ''}`} />
+                                </button>
+                                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaq === index ? 'max-h-40' : 'max-h-0'}`}>
+                                    <p className="p-4 pt-0 text-gray-600 text-sm">{faq.a}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
