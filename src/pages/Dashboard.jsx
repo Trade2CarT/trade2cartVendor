@@ -4,11 +4,12 @@ import { toast } from 'react-hot-toast';
 import { db } from '../firebase';
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { useVendor } from '../App';
-import { FaBoxOpen, FaRupeeSign, FaTasks } from 'react-icons/fa';
+import { FaBoxOpen, FaRupeeSign, FaTasks, FaTag } from 'react-icons/fa'; // Added FaTag
 import SEO from '../components/SEO';
 import Loader from './Loader';
 import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
+import TradePriceModal from '../components/TradePriceModal'; // Import the new modal
 
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
@@ -33,14 +34,14 @@ const Dashboard = () => {
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
-    const [wasteEntriesMap, setWasteEntriesMap] = useState({}); // <-- NEW: To store totals
+    const [wasteEntriesMap, setWasteEntriesMap] = useState({});
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('assigned');
+    const [showPriceModal, setShowPriceModal] = useState(false); // State for modal
 
     useEffect(() => {
         if (!vendor) return;
 
-        // Fetch assignments for this vendor
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
         const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
             const allOrders = firebaseObjectToArray(snapshot);
@@ -49,13 +50,11 @@ const Dashboard = () => {
             setLoading(false);
         }, () => setLoading(false));
 
-        // Fetch all users to map user IDs to names/addresses
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
             setUsersMap(snapshot.val() || {});
         });
 
-        // --- NEW: Fetch all wasteEntries to get the 'total' amount ---
         const wasteEntriesRef = ref(db, 'wasteEntries');
         const unsubscribeWasteEntries = onValue(wasteEntriesRef, (snapshot) => {
             const entries = snapshot.val() || {};
@@ -65,7 +64,7 @@ const Dashboard = () => {
         return () => {
             unsubscribeAssignments();
             unsubscribeUsers();
-            unsubscribeWasteEntries(); // <-- NEW: Unsubscribe
+            unsubscribeWasteEntries();
         };
     }, [vendor]);
 
@@ -90,9 +89,6 @@ const Dashboard = () => {
         );
     }
 
-    // src/pages/Dashboard.jsx
-
-    // This logic will now work because 'o.timestamp' will exist for new orders
     const totalEarningsToday = processedOrders
         .filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString())
         .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
@@ -111,6 +107,17 @@ const Dashboard = () => {
                     <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value={completedTodayCount} color="bg-green-500" />
                     <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
                 </div>
+
+                {/* Today's Trade Price Button */}
+                <div className="mb-6">
+                    <button
+                        onClick={() => setShowPriceModal(true)}
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-green-500 to-teal-500 text-white font-bold rounded-lg shadow-lg hover:from-green-600 hover:to-teal-600 transition-all transform hover:scale-105"
+                    >
+                        <FaTag /> Today's Trade Price
+                    </button>
+                </div>
+
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
                     <div className="flex border-b border-gray-200 mb-4">
@@ -135,6 +142,9 @@ const Dashboard = () => {
                     )}
                 </div>
             </main>
+
+            {/* Render Modal */}
+            {showPriceModal && <TradePriceModal onClose={() => setShowPriceModal(false)} vendorLocation={vendor?.location} />}
         </>
     );
 };
