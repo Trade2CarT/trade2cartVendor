@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
 import { db, auth } from '../firebase';
-import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
+import { FaPlus, FaMinus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
 import SEO from '../components/SEO';
 
@@ -21,7 +21,7 @@ const Process = () => {
     // State for the new UI
     const [billItems, setBillItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [quantity, setQuantity] = useState(1);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [billCalculated, setBillCalculated] = useState(false);
 
 
@@ -82,33 +82,63 @@ const Process = () => {
     }, []);
 
     const searchResults = useMemo(() => {
-        if (!searchTerm || !vendor?.location) return [];
-        const vendorLocation = vendor.location.toLowerCase();
-        return masterItems.filter(item =>
-            item.location?.toLowerCase() === vendorLocation &&
-            item.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [searchTerm, masterItems, vendor]);
+        const vendorLocation = vendor?.location?.toLowerCase();
+        if (!vendorLocation) return [];
+
+        const itemsInLocation = masterItems.filter(item => item.location?.toLowerCase() === vendorLocation);
+
+        if (isSearchFocused && !searchTerm) {
+            return itemsInLocation; // Show all items on focus
+        }
+
+        if (searchTerm) {
+            return itemsInLocation.filter(item =>
+                item.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        return []; // Return empty if not focused and no search term
+    }, [searchTerm, masterItems, vendor, isSearchFocused]);
+
+
+    const handleUpdateQuantity = (billItemId, newQuantity) => {
+        setBillItems(prevItems => {
+            if (newQuantity < 1) {
+                // Remove item if quantity becomes 0 or less
+                return prevItems.filter(item => item.billItemId !== billItemId);
+            }
+            return prevItems.map(item => {
+                if (item.billItemId === billItemId) {
+                    return {
+                        ...item,
+                        weight: newQuantity,
+                        total: (parseFloat(item.rate) || 0) * newQuantity,
+                    };
+                }
+                return item;
+            });
+        });
+    };
 
     const handleAddItem = (item) => {
-        if (!item) {
-            return toast.error("Please select a valid item from the list.");
-        }
-        if (!quantity || quantity <= 0) {
-            return toast.error("Please enter a valid quantity.");
-        }
+        if (!item) return;
 
-        const newBillItem = {
-            ...item,
-            billItemId: `${item.id}-${Date.now()}`, // Unique key for the list
-            weight: quantity,
-            total: (parseFloat(item.rate) || 0) * quantity,
-        };
+        const existingItem = billItems.find(billItem => billItem.id === item.id);
 
-        setBillItems(prev => [...prev, newBillItem]);
-        toast.success(`${item.name} added to bill.`);
+        if (existingItem) {
+            handleUpdateQuantity(existingItem.billItemId, existingItem.weight + 1);
+            toast.success(`${item.name} quantity increased.`);
+        } else {
+            const newBillItem = {
+                ...item,
+                billItemId: `${item.id}-${Date.now()}`,
+                weight: 1, // Default quantity
+                total: (parseFloat(item.rate) || 0) * 1,
+            };
+            setBillItems(prev => [...prev, newBillItem]);
+            toast.success(`${item.name} added to bill.`);
+        }
         setSearchTerm('');
-        setQuantity(1);
     };
 
     const handleRemoveItem = (billItemId) => {
@@ -134,7 +164,7 @@ const Process = () => {
                 assignmentID: assignmentId,
                 vendorId: assignment.vendorId,
                 userId: assignment.userId,
-                billItems: billItems.map(({ id, billItemId, ...item }) => item), // Clean up data for DB
+                billItems: billItems.map(({ id, billItemId, ...item }) => item),
                 totalBill,
                 timestamp: new Date().toISOString(),
                 mobile: assignment.mobile,
@@ -164,8 +194,6 @@ const Process = () => {
         return <Loader fullscreen />;
     }
 
-    const firstSuggestion = searchResults.length > 0 ? searchResults[0] : null;
-
     return (
         <>
             <SEO title={`Process Order - ${assignmentId.slice(-6)}`} description="Generate bill for the customer and complete the scrap pickup order." />
@@ -185,46 +213,31 @@ const Process = () => {
                     {!billCalculated && (
                         <div className="bg-white p-4 rounded-xl shadow-md mb-6">
                             <h2 className="text-lg font-semibold text-gray-700 mb-3">Add Item</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                                <div className="md:col-span-3 relative">
-                                    <label className="text-xs font-medium text-gray-600">Search Item</label>
-                                    <input
-                                        type="text"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        placeholder="Type to search..."
-                                        className="w-full mt-1 p-2 border rounded-md"
-                                        disabled={billCalculated}
-                                    />
-                                    {searchResults.length > 0 && searchTerm && (
-                                        <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
-                                            {searchResults.map(item => (
-                                                <li key={item.id} onMouseDown={() => handleAddItem(item)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                                                    {item.name} (₹{item.rate}/{item.unit})
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="text-xs font-medium text-gray-600">Quantity ({firstSuggestion?.unit || 'unit'})</label>
-                                    <input
-                                        type="number"
-                                        value={quantity}
-                                        min="0.1"
-                                        step="0.1"
-                                        onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
-                                        placeholder="e.g., 1.5"
-                                        className="w-full mt-1 p-2 border rounded-md"
-                                        disabled={billCalculated}
-                                    />
-                                </div>
-                                <button onClick={() => handleAddItem(firstSuggestion)} disabled={!firstSuggestion || billCalculated} className="w-full h-10 flex items-center justify-center bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400">
-                                    <FaPlus />
-                                </button>
+                            <div className="relative">
+                                <label className="text-xs font-medium text-gray-600">Search Item</label>
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    onFocus={() => setIsSearchFocused(true)}
+                                    onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                                    placeholder="Click to see items or type to search..."
+                                    className="w-full mt-1 p-2 border rounded-md"
+                                    disabled={billCalculated}
+                                />
+                                {isSearchFocused && searchResults.length > 0 && (
+                                    <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                        {searchResults.map(item => (
+                                            <li key={item.id} onMouseDown={() => handleAddItem(item)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                                                {item.name} (₹{item.rate}/{item.unit})
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
                         </div>
                     )}
+
 
                     {billItems.length > 0 && (
                         <div className="bg-white p-4 rounded-xl shadow-md">
@@ -234,7 +247,7 @@ const Process = () => {
                                     <thead className="text-left text-xs uppercase text-gray-500">
                                         <tr>
                                             <th className="p-2">Item</th>
-                                            <th className="p-2 text-right">Qty</th>
+                                            <th className="p-2 text-center">Quantity</th>
                                             <th className="p-2 text-right">Rate</th>
                                             <th className="p-2 text-right">Total</th>
                                             <th className="p-2 text-center"></th>
@@ -244,7 +257,17 @@ const Process = () => {
                                         {billItems.map((item) => (
                                             <tr key={item.billItemId} className="border-t">
                                                 <td className="p-2 font-medium text-gray-800">{item.name}</td>
-                                                <td className="p-2 text-right text-gray-600">{item.weight} {item.unit}</td>
+                                                <td className="p-2 text-center text-gray-600">
+                                                    {!billCalculated ? (
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button onClick={() => handleUpdateQuantity(item.billItemId, item.weight - 1)} className="w-7 h-7 border rounded-full flex items-center justify-center text-lg text-red-500 hover:bg-red-50">-</button>
+                                                            <span className="font-semibold w-12 text-center">{item.weight} {item.unit}</span>
+                                                            <button onClick={() => handleUpdateQuantity(item.billItemId, item.weight + 1)} className="w-7 h-7 border rounded-full flex items-center justify-center text-lg text-green-600 hover:bg-green-50">+</button>
+                                                        </div>
+                                                    ) : (
+                                                        <span>{item.weight} {item.unit}</span>
+                                                    )}
+                                                </td>
                                                 <td className="p-2 text-right text-gray-600">₹{parseFloat(item.rate).toFixed(2)}</td>
                                                 <td className="p-2 text-right font-semibold text-gray-800">₹{item.total.toFixed(2)}</td>
                                                 <td className="p-2 text-center">
