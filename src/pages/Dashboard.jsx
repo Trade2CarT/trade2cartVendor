@@ -99,7 +99,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <StatCard icon={<FaBoxOpen size={24} className="text-white" />} title="Pending Orders" value={assignedOrders.length} color="bg-blue-500" />
                     <StatCard icon={<FaTasks size={24} className="text-white" />} title="Completed Today" value={completedTodayCount} color="bg-green-500" />
-                    <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
+                    <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Buyed Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
                 </div>
 
                 <div className="mb-6">
