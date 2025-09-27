@@ -5,7 +5,7 @@ import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
 
-// OTP Modal Component (no changes needed here)
+// OTP Modal Component
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
@@ -71,7 +71,7 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
 };
 
 
-const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
+const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const navigate = useNavigate();
     const [otpModalOrder, setOtpModalOrder] = useState(null);
     const [verifyLoading, setVerifyLoading] = useState(false);
@@ -90,7 +90,6 @@ const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
             if (String(userData.otp) === String(enteredOtp)) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                // Corrected navigation: No state needed
                 navigate(`/process/${otpModalOrder.id}`);
             } else {
                 toast.error("Invalid OTP. Please check again.");
@@ -117,8 +116,7 @@ const AssignedOrders = ({ assignedOrders, usersMap, wasteEntriesMap }) => {
                     </thead>
                     <tbody>
                         {assignedOrders.map(order => {
-                            const originalWasteEntry = wasteEntriesMap[order.id];
-                            const estimatedTotal = originalWasteEntry ? originalWasteEntry.totalAmount : '0.00';
+                            const estimatedTotal = order.totalAmount || '0.00';
 
                             return (
                                 <tr key={order.id} className="bg-white border-b hover:bg-gray-50">

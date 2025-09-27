@@ -4,12 +4,12 @@ import { toast } from 'react-hot-toast';
 import { db } from '../firebase';
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { useVendor } from '../App';
-import { FaBoxOpen, FaRupeeSign, FaTasks, FaTag } from 'react-icons/fa'; // Added FaTag
+import { FaBoxOpen, FaRupeeSign, FaTasks, FaTag } from 'react-icons/fa';
 import SEO from '../components/SEO';
 import Loader from './Loader';
 import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
-import TradePriceModal from '../components/TradePriceModal'; // Import the new modal
+import TradePriceModal from '../components/TradePriceModal';
 
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
@@ -34,14 +34,14 @@ const Dashboard = () => {
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
-    const [wasteEntriesMap, setWasteEntriesMap] = useState({});
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('assigned');
-    const [showPriceModal, setShowPriceModal] = useState(false); // State for modal
+    const [showPriceModal, setShowPriceModal] = useState(false);
 
     useEffect(() => {
         if (!vendor) return;
 
+        // Fetch assignments for this vendor
         const assignmentsQuery = query(ref(db, 'assignments'), orderByChild('vendorPhone'), equalTo(vendor.phone));
         const unsubscribeAssignments = onValue(assignmentsQuery, (snapshot) => {
             const allOrders = firebaseObjectToArray(snapshot);
@@ -50,21 +50,15 @@ const Dashboard = () => {
             setLoading(false);
         }, () => setLoading(false));
 
+        // Fetch all users to map user IDs to names/addresses
         const usersRef = ref(db, 'users');
         const unsubscribeUsers = onValue(usersRef, (snapshot) => {
             setUsersMap(snapshot.val() || {});
         });
 
-        const wasteEntriesRef = ref(db, 'wasteEntries');
-        const unsubscribeWasteEntries = onValue(wasteEntriesRef, (snapshot) => {
-            const entries = snapshot.val() || {};
-            setWasteEntriesMap(entries);
-        });
-
         return () => {
             unsubscribeAssignments();
             unsubscribeUsers();
-            unsubscribeWasteEntries();
         };
     }, [vendor]);
 
@@ -108,7 +102,6 @@ const Dashboard = () => {
                     <StatCard icon={<FaRupeeSign size={24} className="text-white" />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(2)}`} color="bg-purple-500" />
                 </div>
 
-                {/* Today's Trade Price Button */}
                 <div className="mb-6">
                     <button
                         onClick={() => setShowPriceModal(true)}
@@ -136,14 +129,13 @@ const Dashboard = () => {
                     </div>
 
                     {activeTab === 'assigned' ? (
-                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} wasteEntriesMap={wasteEntriesMap} />
+                        <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} />
                     ) : (
                         <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
                     )}
                 </div>
             </main>
 
-            {/* Render Modal */}
             {showPriceModal && <TradePriceModal onClose={() => setShowPriceModal(false)} vendorLocation={vendor?.location} />}
         </>
     );
