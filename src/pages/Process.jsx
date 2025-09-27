@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get, onValue, push, update } from 'firebase/database';
-import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth } from '../firebase';
 import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt } from 'react-icons/fa';
 import Loader from './Loader';
@@ -15,12 +14,16 @@ const Process = () => {
     const [vendor, setVendor] = useState(null);
     const [assignment, setAssignment] = useState(null);
     const [customer, setCustomer] = useState(null);
-    const [billItems, setBillItems] = useState([{ name: '', rate: '', weight: '', total: 0 }]);
     const [masterItems, setMasterItems] = useState([]);
-    const [filteredItems, setFilteredItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // State for the new UI
+    const [billItems, setBillItems] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [quantity, setQuantity] = useState(1);
     const [billCalculated, setBillCalculated] = useState(false);
+
 
     useEffect(() => {
         if (!assignmentId) {
@@ -29,133 +32,96 @@ const Process = () => {
             return;
         }
 
-        let isMounted = true;
-        setLoading(true);
-
         const fetchData = async () => {
+            setLoading(true);
             try {
-                // Get the currently authenticated vendor's UID
                 const user = auth.currentUser;
-                if (user && isMounted) {
+                if (user) {
                     const vendorRef = ref(db, `vendors/${user.uid}`);
                     const vendorSnapshot = await get(vendorRef);
-                    if (isMounted && vendorSnapshot.exists()) {
+                    if (vendorSnapshot.exists()) {
                         setVendor(vendorSnapshot.val());
                     }
                 }
 
-                // Fetch the specific assignment
                 const assignmentRef = ref(db, `assignments/${assignmentId}`);
                 const assignmentSnapshot = await get(assignmentRef);
-                if (!isMounted || !assignmentSnapshot.exists()) {
-                    if (isMounted) toast.error("Order not found.");
+                if (!assignmentSnapshot.exists()) {
+                    toast.error("Order not found.");
+                    navigate('/dashboard');
                     return;
                 }
-
                 const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
                 setAssignment(assignmentData);
 
-                // Fetch the customer using the userId from the assignment
                 if (assignmentData.userId) {
                     const userRef = ref(db, `users/${assignmentData.userId}`);
                     const userSnapshot = await get(userRef);
-                    if (isMounted && userSnapshot.exists()) {
+                    if (userSnapshot.exists()) {
                         setCustomer(userSnapshot.val());
                     }
                 }
-
             } catch (error) {
-                if (isMounted) toast.error("Failed to load critical data.");
+                toast.error("Failed to load critical order data.");
             } finally {
-                if (isMounted) setLoading(false);
+                setLoading(false);
             }
         };
 
         fetchData();
-
-        // Cleanup function
-        return () => {
-            isMounted = false;
-        };
     }, [assignmentId, navigate]);
 
-    // update st from her
     useEffect(() => {
-        const dbRef = ref(db, 'items');
-        const unsubscribe = onValue(dbRef, (snapshot) => {
+        const itemsRef = ref(db, 'items');
+        const unsubscribe = onValue(itemsRef, (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                // The old code included the item ID which is needed for the 'key' prop in React.
-                // Object.values(data) would lose the ID, so we map the data to preserve it.
-                const itemsArray = Object.keys(data).map(key => ({
-                    id: key,
-                    ...data[key]
-                }));
-                setMasterItems(itemsArray);
-            } else {
-                setMasterItems([]); // Handle case where there are no items
-            }
+            const itemsArray = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            setMasterItems(itemsArray);
         });
-
-        // Cleanup function to detach the listener when the component unmounts
         return () => unsubscribe();
-    }, []); // Empty dependency array ensures this runs only once on mount
-    // end here
+    }, []);
 
-    // This useEffect hook filters items correctly, ignoring case
-    useEffect(() => {
-        if (masterItems.length > 0 && vendor?.location) {
-            const vendorLocation = vendor.location.toLowerCase();
-            const filtered = masterItems.filter(
-                item => item.location && item.location.toLowerCase() === vendorLocation
-            );
-            setFilteredItems(filtered);
+    const searchResults = useMemo(() => {
+        if (!searchTerm || !vendor?.location) return [];
+        const vendorLocation = vendor.location.toLowerCase();
+        return masterItems.filter(item =>
+            item.location?.toLowerCase() === vendorLocation &&
+            item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [searchTerm, masterItems, vendor]);
+
+    const handleAddItem = (item) => {
+        if (!item) {
+            return toast.error("Please select a valid item from the list.");
         }
-    }, [masterItems, vendor]);
-
-    const handleItemSelection = (index, selectedItemName) => {
-        const newBillItems = [...billItems];
-        if (!selectedItemName) {
-            newBillItems[index] = { name: '', rate: '', weight: '', total: 0 };
-            setBillItems(newBillItems);
-            return;
+        if (!quantity || quantity <= 0) {
+            return toast.error("Please enter a valid quantity.");
         }
-        const matchedItem = filteredItems.find(item => item.name === selectedItemName);
-        if (matchedItem) {
-            newBillItems[index].name = matchedItem.name;
-            newBillItems[index].rate = matchedItem.rate;
-        }
-        updateItemTotal(index, newBillItems);
+
+        const newBillItem = {
+            ...item,
+            billItemId: `${item.id}-${Date.now()}`, // Unique key for the list
+            weight: quantity,
+            total: (parseFloat(item.rate) || 0) * quantity,
+        };
+
+        setBillItems(prev => [...prev, newBillItem]);
+        toast.success(`${item.name} added to bill.`);
+        setSearchTerm('');
+        setQuantity(1);
     };
 
-    const handleWeightChange = (index, value) => {
-        const newBillItems = [...billItems];
-        newBillItems[index].weight = value;
-        updateItemTotal(index, newBillItems);
+    const handleRemoveItem = (billItemId) => {
+        setBillItems(prev => prev.filter(item => item.billItemId !== billItemId));
     };
 
-    // ... (The rest of the functions in Process.jsx are correct and do not need to be changed)
-
-    const updateItemTotal = (index, items) => {
-        const rate = parseFloat(items[index].rate) || 0;
-        const weight = parseFloat(items[index].weight) || 0;
-        items[index].total = rate * weight;
-        setBillItems(items);
-    };
-
-    const addAnotherItem = () => {
-        setBillItems([...billItems, { name: '', rate: '', weight: '', total: 0 }]);
-    };
-
-    const removeItem = (index) => {
-        setBillItems(billItems.filter((_, i) => i !== index));
-    };
-
-    const totalBill = billItems.reduce((acc, item) => acc + (item.total || 0), 0);
+    const totalBill = useMemo(() => {
+        return billItems.reduce((acc, item) => acc + (item.total || 0), 0);
+    }, [billItems]);
 
     const handleCalculateBill = () => {
-        if (billItems.some(item => !item.name || !item.rate || !item.weight || parseFloat(item.rate) <= 0 || parseFloat(item.weight) <= 0)) {
-            return toast.error("Please fill all fields for each item with valid numbers.");
+        if (billItems.length === 0) {
+            return toast.error("Please add at least one item to the bill.");
         }
         setBillCalculated(true);
         toast.success("Total calculated. Please confirm to complete.");
@@ -168,7 +134,7 @@ const Process = () => {
                 assignmentID: assignmentId,
                 vendorId: assignment.vendorId,
                 userId: assignment.userId,
-                billItems: billItems.map(({ ...item }) => item),
+                billItems: billItems.map(({ id, billItemId, ...item }) => item), // Clean up data for DB
                 totalBill,
                 timestamp: new Date().toISOString(),
                 mobile: assignment.mobile,
@@ -188,7 +154,6 @@ const Process = () => {
             toast.success("Bill saved and order completed!");
             navigate('/dashboard');
         } catch (error) {
-            console.error("Failed to submit bill:", error);
             toast.error("An error occurred. Please try again.");
         } finally {
             setIsSubmitting(false);
@@ -199,10 +164,12 @@ const Process = () => {
         return <Loader fullscreen />;
     }
 
+    const firstSuggestion = searchResults.length > 0 ? searchResults[0] : null;
+
     return (
         <>
             <SEO title={`Process Order - ${assignmentId.slice(-6)}`} description="Generate bill for the customer and complete the scrap pickup order." />
-            <div className="p-4 md:p-8">
+            <div className="p-4 md:p-6">
                 <div className="max-w-2xl mx-auto">
                     <h1 className="text-3xl font-bold text-gray-800 mb-6">Generate Bill</h1>
 
@@ -215,64 +182,86 @@ const Process = () => {
                         </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {billItems.map((item, index) => (
-                            <div key={index} className="bg-white p-4 rounded-xl shadow-md relative">
-                                {billItems.length > 1 && !billCalculated && (
-                                    <button onClick={() => removeItem(index)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500">
-                                        <FaTrash />
-                                    </button>
-                                )}
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                                    <div className="md:col-span-2">
-                                        <label className="text-xs font-medium text-gray-600">Item Name</label>
-                                        <select
-                                            value={item.name}
-                                            onChange={(e) => handleItemSelection(index, e.target.value)}
-                                            className="w-full mt-1 p-2 border rounded-md bg-white"
-                                            disabled={billCalculated}
-                                        >
-                                            <option value="">-- Select an item --</option>
-                                            {filteredItems.map(filteredItem => (
-                                                <option key={filteredItem.id} value={filteredItem.name}>
-                                                    {filteredItem.name}
-                                                </option>
+                    {!billCalculated && (
+                        <div className="bg-white p-4 rounded-xl shadow-md mb-6">
+                            <h2 className="text-lg font-semibold text-gray-700 mb-3">Add Item</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                                <div className="md:col-span-3 relative">
+                                    <label className="text-xs font-medium text-gray-600">Search Item</label>
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Type to search..."
+                                        className="w-full mt-1 p-2 border rounded-md"
+                                        disabled={billCalculated}
+                                    />
+                                    {searchResults.length > 0 && searchTerm && (
+                                        <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-lg">
+                                            {searchResults.map(item => (
+                                                <li key={item.id} onMouseDown={() => handleAddItem(item)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                                                    {item.name} (₹{item.rate}/{item.unit})
+                                                </li>
                                             ))}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-600">Rate (₹)</label>
-                                        <input
-                                            type="number"
-                                            value={item.rate}
-                                            placeholder="0.00"
-                                            className="w-full mt-1 p-2 border rounded-md bg-gray-100"
-                                            readOnly
-                                            disabled={billCalculated}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-medium text-gray-600">Weight/Unit</label>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            value={item.weight}
-                                            onChange={(e) => handleWeightChange(index, e.target.value)}
-                                            placeholder="e.g., 1.5"
-                                            className="w-full mt-1 p-2 border rounded-md"
-                                            disabled={billCalculated}
-                                        />
-                                    </div>
+                                        </ul>
+                                    )}
                                 </div>
-                                <p className="text-right font-semibold mt-2 text-gray-700">Item Total: ₹{item.total.toFixed(2)}</p>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-600">Quantity ({firstSuggestion?.unit || 'unit'})</label>
+                                    <input
+                                        type="number"
+                                        value={quantity}
+                                        min="0.1"
+                                        step="0.1"
+                                        onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
+                                        placeholder="e.g., 1.5"
+                                        className="w-full mt-1 p-2 border rounded-md"
+                                        disabled={billCalculated}
+                                    />
+                                </div>
+                                <button onClick={() => handleAddItem(firstSuggestion)} disabled={!firstSuggestion || billCalculated} className="w-full h-10 flex items-center justify-center bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:bg-gray-400">
+                                    <FaPlus />
+                                </button>
                             </div>
-                        ))}
-                    </div>
-                    {!billCalculated &&
-                        <button onClick={addAnotherItem} className="flex items-center gap-2 text-blue-600 font-semibold mt-4 hover:underline">
-                            <FaPlus size={12} /> Add Another Item
-                        </button>
-                    }
+                        </div>
+                    )}
+
+                    {billItems.length > 0 && (
+                        <div className="bg-white p-4 rounded-xl shadow-md">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-3">Bill Summary</h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="text-left text-xs uppercase text-gray-500">
+                                        <tr>
+                                            <th className="p-2">Item</th>
+                                            <th className="p-2 text-right">Qty</th>
+                                            <th className="p-2 text-right">Rate</th>
+                                            <th className="p-2 text-right">Total</th>
+                                            <th className="p-2 text-center"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {billItems.map((item) => (
+                                            <tr key={item.billItemId} className="border-t">
+                                                <td className="p-2 font-medium text-gray-800">{item.name}</td>
+                                                <td className="p-2 text-right text-gray-600">{item.weight} {item.unit}</td>
+                                                <td className="p-2 text-right text-gray-600">₹{parseFloat(item.rate).toFixed(2)}</td>
+                                                <td className="p-2 text-right font-semibold text-gray-800">₹{item.total.toFixed(2)}</td>
+                                                <td className="p-2 text-center">
+                                                    {!billCalculated && (
+                                                        <button onClick={() => handleRemoveItem(item.billItemId)} className="text-gray-400 hover:text-red-500">
+                                                            <FaTrash />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="mt-8 p-4 bg-green-100 border-t-4 border-green-500 rounded-b-lg flex justify-between items-center">
                         <span className="text-xl font-bold text-green-800">Total Bill</span>
                         <span className="text-2xl font-bold text-green-800">₹{totalBill.toFixed(2)}</span>
