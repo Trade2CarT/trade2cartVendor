@@ -102,8 +102,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
 
     const allowedPaths = [
         "/dashboard",
-        "/account",
-        "/register"
+        "/account"
     ];
 
     const isProcessRoute = path.startsWith("/process/");
