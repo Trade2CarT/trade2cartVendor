@@ -73,7 +73,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
                     const snapshot = await get(vendorRef);
 
                     if (snapshot.exists()) {
-                        setVendor(snapshot.val());
+                        setVendor(snapshot.val());  // registered user
                     }
                 } catch (error) {
                     console.error("Vendor fetch error:", error);
@@ -91,8 +91,11 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // 🔥 BLOCK registered users from accessing /register
-    if (!hasLayout && vendor) return <Navigate to="/dashboard" replace />;
+    // 🔥 NEW FIX: Unregistered users cannot access dashboard, process, account
+    if (!vendor && hasLayout) return <Navigate to="/register" replace />;
+
+    // 🔥 Already registered users should not access /register
+    if (vendor && !hasLayout) return <Navigate to="/dashboard" replace />;
 
     return (
         <VendorContext.Provider value={vendor}>
@@ -110,6 +113,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
         </VendorContext.Provider>
     );
 };
+
 
 
 // ----------------------------------------------------
