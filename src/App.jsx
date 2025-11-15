@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get } from 'firebase/database'; // Removed unused query functions
+import { ref, get } from 'firebase/database';
 import { auth, db } from './firebase.js';
 
 import Header from './components/Header.jsx';
@@ -15,11 +15,14 @@ import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 
-// Context to centrally manage vendor data
+// Context
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
-// Auth State Checker
+
+// ----------------------------------------------------
+// AUTH CHECKER (initial page /)
+// ----------------------------------------------------
 const AuthChecker = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -39,16 +42,22 @@ const AuthChecker = () => {
             setUser(currentUser);
             setLoading(false);
         });
+
         return () => unsubscribe();
     }, []);
 
     if (loading) return <Loader fullscreen />;
     if (!user) return <Navigate to="/login" replace />;
-    return isRegistered ? <Navigate to="/dashboard" replace /> : <Navigate to="/register" replace />;
+
+    return isRegistered
+        ? <Navigate to="/dashboard" replace />
+        : <Navigate to="/register" replace />;
 };
 
-// --- CORRECTED ProtectedRoute ---
-// This is the key change to fix the error
+
+// ----------------------------------------------------
+// PROTECTED ROUTE
+// ----------------------------------------------------
 const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
@@ -58,26 +67,32 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setIsAuthenticated(true);
+
                 try {
-                    // **THE FIX**: Fetch vendor data directly by UID
                     const vendorRef = ref(db, `vendors/${user.uid}`);
                     const snapshot = await get(vendorRef);
+
                     if (snapshot.exists()) {
                         setVendor(snapshot.val());
                     }
                 } catch (error) {
-                    console.error("Firebase fetch error:", error);
+                    console.error("Vendor fetch error:", error);
                 }
             } else {
                 setIsAuthenticated(false);
             }
+
             setLoading(false);
         });
+
         return () => unsubscribe();
     }, []);
 
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+    // 🔥 BLOCK registered users from accessing /register
+    if (!hasLayout && vendor) return <Navigate to="/dashboard" replace />;
 
     return (
         <VendorContext.Provider value={vendor}>
@@ -96,7 +111,10 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     );
 };
 
-// PublicRoute
+
+// ----------------------------------------------------
+// PUBLIC ROUTE
+// ----------------------------------------------------
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -106,17 +124,22 @@ const PublicRoute = () => {
             setIsAuthenticated(!!user);
             setLoading(false);
         });
+
         return () => unsubscribe();
     }, []);
 
     if (loading) return <Loader fullscreen />;
+
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
-// Main App Component
+
+// ----------------------------------------------------
+// APP
+// ----------------------------------------------------
 function App() {
     const handleSignOut = () => {
-        signOut(auth).catch(error => toast.error("Failed to sign out."));
+        signOut(auth).catch(() => toast.error("Failed to sign out"));
     };
 
     return (
@@ -126,21 +149,25 @@ function App() {
                 <Routes>
                     <Route path="/" element={<AuthChecker />} />
 
+                    {/* Public Routes */}
                     <Route element={<PublicRoute />}>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/otp" element={<OtpPage />} />
                     </Route>
 
+                    {/* Protected Routes - With header/footer */}
                     <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
 
+                    {/* Protected Route for Register (no layout) */}
                     <Route element={<ProtectedRoute hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                     </Route>
 
+                    {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
@@ -148,4 +175,4 @@ function App() {
     );
 }
 
-export default App; 
+export default App;
