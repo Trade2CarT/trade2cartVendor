@@ -14,6 +14,8 @@ import Dashboard from './pages/Dashboard.jsx';
 import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
+import PendingPage from './pages/PendingPage';
+
 
 // Context
 const VendorContext = createContext(null);
@@ -49,9 +51,19 @@ const AuthChecker = () => {
     if (loading) return <Loader fullscreen />;
     if (!user) return <Navigate to="/login" replace />;
 
-    return isRegistered
-        ? <Navigate to="/dashboard" replace />
-        : <Navigate to="/register" replace />;
+    if (isRegistered) {
+        const vendorRef = ref(db, `vendors/${currentUser.uid}`);
+        const snapshot = await get(vendorRef);
+        const vendor = snapshot.val();
+
+        if (vendor.status === "approved") {
+            return <Navigate to="/dashboard" replace />;
+        } else {
+            return <Navigate to="/pending" replace />;
+        }
+    }
+
+
 };
 
 
@@ -169,7 +181,9 @@ function App() {
                     {/* Protected Route for Register (no layout) */}
                     <Route element={<ProtectedRoute hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
+                        <Route path="/pending" element={<PendingPage />} />
                     </Route>
+
 
                     {/* Fallback */}
                     <Route path="*" element={<Navigate to="/" replace />} />

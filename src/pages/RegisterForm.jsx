@@ -217,7 +217,8 @@ const RegisterForm = () => {
             };
             await set(dbRef(db, `vendors/${user.uid}`), vendorData);
             toast.success('Registration submitted for verification!');
-            navigate('/dashboard');
+            navigate('/pending');
+
         } catch (error) {
             toast.error("Registration failed. Please try again.");
         } finally {
