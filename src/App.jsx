@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { ref, get } from 'firebase/database'; // Removed unused query functions
 import { auth, db } from './firebase.js';
 
 import Header from './components/Header.jsx';
@@ -15,17 +15,11 @@ import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 
-
-// ---------------------------
-// CONTEXT
-// ---------------------------
+// Context to centrally manage vendor data
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
-
-// ---------------------------
-// AUTH CHECKER (Main redirect on root /)
-// ---------------------------
+// Auth State Checker
 const AuthChecker = () => {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
@@ -42,24 +36,19 @@ const AuthChecker = () => {
                     toast.error("Could not verify registration status.");
                 }
             }
-
             setUser(currentUser);
             setLoading(false);
         });
-
         return () => unsubscribe();
     }, []);
 
     if (loading) return <Loader fullscreen />;
     if (!user) return <Navigate to="/login" replace />;
-
     return isRegistered ? <Navigate to="/dashboard" replace /> : <Navigate to="/register" replace />;
 };
 
-
-// ---------------------------
-// PROTECTED ROUTE (Final fixed version)
-// ---------------------------
+// --- CORRECTED ProtectedRoute ---
+// This is the key change to fix the error
 const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
@@ -69,11 +58,10 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setIsAuthenticated(true);
-
                 try {
+                    // **THE FIX**: Fetch vendor data directly by UID
                     const vendorRef = ref(db, `vendors/${user.uid}`);
                     const snapshot = await get(vendorRef);
-
                     if (snapshot.exists()) {
                         setVendor(snapshot.val());
                     }
@@ -83,42 +71,14 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
             } else {
                 setIsAuthenticated(false);
             }
-
             setLoading(false);
         });
-
         return () => unsubscribe();
     }, []);
 
     if (loading) return <Loader fullscreen />;
-
-    // If not logged in → redirect to login
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // --------------------------
-    // URL VALIDATION PROTECTION
-    // --------------------------
-    const path = window.location.pathname;
-
-    const allowedPaths = [
-        "/dashboard",
-        "/account"
-    ];
-
-    const isProcessRoute = path.startsWith("/process/");
-
-    const isAllowed = allowedPaths.includes(path) || isProcessRoute;
-
-    // If logged in but tries wrong URL → redirect properly
-    if (!isAllowed) {
-        return vendor
-            ? <Navigate to="/dashboard" replace />
-            : <Navigate to="/register" replace />;
-    }
-
-    // ------------------------------
-    // If everything good → show layout/pages
-    // ------------------------------
     return (
         <VendorContext.Provider value={vendor}>
             {hasLayout ? (
@@ -136,10 +96,7 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     );
 };
 
-
-// ---------------------------
-// PUBLIC ROUTE
-// ---------------------------
+// PublicRoute
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -149,51 +106,41 @@ const PublicRoute = () => {
             setIsAuthenticated(!!user);
             setLoading(false);
         });
-
         return () => unsubscribe();
     }, []);
 
     if (loading) return <Loader fullscreen />;
-
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
-
-// ---------------------------
-// MAIN APP
-// ---------------------------
+// Main App Component
 function App() {
     const handleSignOut = () => {
-        signOut(auth).catch(() => toast.error("Failed to sign out."));
+        signOut(auth).catch(error => toast.error("Failed to sign out."));
     };
 
     return (
         <>
             <Toaster position="top-center" reverseOrder={false} />
-
             <Router>
                 <Routes>
                     <Route path="/" element={<AuthChecker />} />
 
-                    {/* Public: Login & OTP */}
                     <Route element={<PublicRoute />}>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/otp" element={<OtpPage />} />
                     </Route>
 
-                    {/* Protected Pages */}
                     <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
 
-                    {/* Registration page (no layout) */}
                     <Route element={<ProtectedRoute hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                     </Route>
 
-                    {/* Catch all invalid routes */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
@@ -201,4 +148,4 @@ function App() {
     );
 }
 
-export default App;
+export default App; 
