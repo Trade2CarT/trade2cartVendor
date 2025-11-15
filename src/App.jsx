@@ -25,45 +25,55 @@ export const useVendor = () => useContext(VendorContext);
 // ----------------------------------------------------
 // AUTH CHECKER (initial page /)
 // ----------------------------------------------------
+// ----------------------------------------------------
+// AUTH CHECKER (initial page /)
+// ----------------------------------------------------
 const AuthChecker = () => {
-    const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(null);
-    const [isRegistered, setIsRegistered] = useState(false);
+    // We only need one state: where to go. null means "checking...".
+    const [destination, setDestination] = useState(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                try {
-                    const vendorRef = ref(db, `vendors/${currentUser.uid}`);
-                    const snapshot = await get(vendorRef);
-                    setIsRegistered(snapshot.exists());
-                } catch (error) {
-                    toast.error("Could not verify registration status.");
-                }
+            if (!currentUser) {
+                // No user, send to login
+                setDestination("/login");
+                return;
             }
-            setUser(currentUser);
-            setLoading(false);
+
+            // User is logged in, now check their registration status
+            try {
+                const vendorRef = ref(db, `vendors/${currentUser.uid}`);
+                const snapshot = await get(vendorRef);
+
+                if (snapshot.exists()) {
+                    // Vendor is registered, check their status
+                    const vendor = snapshot.val();
+                    if (vendor.status === "approved") {
+                        setDestination("/dashboard");
+                    } else {
+                        // Status is 'pending' or 'rejected'
+                        setDestination("/pending");
+                    }
+                } else {
+                    // User is logged in but has no vendor data
+                    setDestination("/register");
+                }
+            } catch (error) {
+                toast.error("Could not verify registration status.");
+                setDestination("/login"); // On error, send back to login
+            }
         });
 
         return () => unsubscribe();
-    }, []);
+    }, []); // The empty array [] ensures this runs only once on mount
 
-    if (loading) return <Loader fullscreen />;
-    if (!user) return <Navigate to="/login" replace />;
-
-    if (isRegistered) {
-        const vendorRef = ref(db, `vendors/${currentUser.uid}`);
-        const snapshot = await get(vendorRef);
-        const vendor = snapshot.val();
-
-        if (vendor.status === "approved") {
-            return <Navigate to="/dashboard" replace />;
-        } else {
-            return <Navigate to="/pending" replace />;
-        }
+    // While checking, show a loader
+    if (!destination) {
+        return <Loader fullscreen />;
     }
 
-
+    // Once we have a destination, navigate there
+    return <Navigate to={destination} replace />;
 };
 
 
