@@ -9,7 +9,14 @@ export default defineConfig({
     tailwindcss(),
     react(),
     sitemapPlugin({
-      hostname: 'https://vendor.trade2cart.in'
+      hostname: 'https://vendor.trade2cart.in',
+      // This will GENERATE a robots.txt file for you
+      robots: [
+        {
+          userAgent: '*',
+          allow: '/',
+        }
+      ]
     })
   ],
 })
