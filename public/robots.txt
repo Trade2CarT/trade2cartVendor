@@ -2,4 +2,4 @@
 #
 # Allow all crawling
 User-agent: *
-Disallow
+Allow: /

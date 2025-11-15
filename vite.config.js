@@ -5,5 +5,8 @@ import sitemapPlugin from 'vite-plugin-sitemap'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [tailwindcss(), react(), sitemapPlugin({ hostname: 'https://vendor.trade2cart.in' })],
+  plugins: [tailwindcss(), react(), sitemapPlugin({
+    robots: false
+  })
+, sitemapPlugin({ hostname: 'https://vendor.trade2cart.in' })],
 })
