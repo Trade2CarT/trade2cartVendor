@@ -9,8 +9,7 @@ export default defineConfig({
     tailwindcss(),
     react(),
     sitemapPlugin({
-      hostname: 'https://vendor.trade2cart.in',
-      robots: false
+      hostname: 'https://vendor.trade2cart.in'
     })
   ],
 })
