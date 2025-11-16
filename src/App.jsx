@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -19,12 +19,10 @@ import PendingPage from './pages/PendingPage';
 
 // Context
 const VendorContext = createContext(null);
+// useVendor will now return an object: { vendor, installPrompt }
 export const useVendor = () => useContext(VendorContext);
 
 
-// ----------------------------------------------------
-// AUTH CHECKER (initial page /)
-// ----------------------------------------------------
 // ----------------------------------------------------
 // AUTH CHECKER (initial page /)
 // ----------------------------------------------------
@@ -78,9 +76,9 @@ const AuthChecker = () => {
 
 
 // ----------------------------------------------------
-// PROTECTED ROUTE
+// PROTECTED ROUTE (MODIFIED)
 // ----------------------------------------------------
-const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
+const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => { // <-- 1. Receive installPrompt
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -110,6 +108,12 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
         return () => unsubscribe();
     }, []);
 
+    // --- 2. Create a combined context value ---
+    const contextValue = useMemo(() => ({
+        vendor,
+        installPrompt
+    }), [vendor, installPrompt]);
+
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
@@ -120,7 +124,8 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true }) => {
     if (vendor && !hasLayout) return <Navigate to="/dashboard" replace />;
 
     return (
-        <VendorContext.Provider value={vendor}>
+        // --- 3. Provide the new combined value ---
+        <VendorContext.Provider value={contextValue}>
             {hasLayout ? (
                 <div className="flex flex-col min-h-screen">
                     <Header handleSignOut={handleSignOut} />
@@ -161,9 +166,28 @@ const PublicRoute = () => {
 
 
 // ----------------------------------------------------
-// APP
+// APP (MODIFIED)
 // ----------------------------------------------------
 function App() {
+    // --- 1. Add installPrompt state here ---
+    const [installPrompt, setInstallPrompt] = useState(null);
+
+    // --- 2. Add listener effect here ---
+    useEffect(() => {
+        const handler = (e) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Save the event so it can be triggered later.
+            console.log("Install prompt captured in App.jsx!"); // For debugging
+            setInstallPrompt(e);
+        };
+
+        window.addEventListener('beforeinstallprompt', handler);
+
+        // Cleanup
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
     const handleSignOut = () => {
         signOut(auth).catch(() => toast.error("Failed to sign out"));
     };
@@ -181,15 +205,16 @@ function App() {
                         <Route path="/otp" element={<OtpPage />} />
                     </Route>
 
+                    {/* --- 3. Pass installPrompt as a prop --- */}
                     {/* Protected Routes - With header/footer */}
-                    <Route element={<ProtectedRoute handleSignOut={handleSignOut} />}>
+                    <Route element={<ProtectedRoute installPrompt={installPrompt} handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
 
                     {/* Protected Route for Register (no layout) */}
-                    <Route element={<ProtectedRoute hasLayout={false} />}>
+                    <Route element={<ProtectedRoute installPrompt={installPrompt} hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                         <Route path="/pending" element={<PendingPage />} />
                     </Route>

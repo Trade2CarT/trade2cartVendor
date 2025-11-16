@@ -30,7 +30,12 @@ const StatCard = ({ icon, title, value, color }) => (
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const vendor = useVendor();
+
+    // --- THIS IS THE REQUIRED CHANGE ---
+    // The context now provides an object, so destructure `vendor` from it.
+    const { vendor } = useVendor();
+    // --- END OF CHANGE ---
+
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
