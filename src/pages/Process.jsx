@@ -184,7 +184,8 @@ const Process = () => {
     return (
         <>
             <SEO title={`Process Order - ${assignmentId.slice(-6)}`} />
-            <div className="pb-40 bg-gray-50 min-h-screen">
+            {/* FIXED: Increased bottom padding (pb-52) so content isn't hidden behind the stacked menus */}
+            <div className="pb-52 bg-gray-50 min-h-screen">
 
                 {/* Header */}
                 <div className="bg-blue-600 text-white p-6 pt-8 rounded-b-3xl shadow-md mb-6">
@@ -240,7 +241,6 @@ const Process = () => {
                                     )}
                                     <h4 className="font-extrabold text-lg text-gray-900 pr-8">{item.name}</h4>
 
-                                    {/* FIXED: Added items-end, min-w-0 to children, and removed tracking-widest */}
                                     <div className="flex gap-2 mt-3 items-end">
                                         {/* Editable Price */}
                                         <div className="flex-1 min-w-0">
@@ -264,9 +264,9 @@ const Process = () => {
                     )}
                 </div>
 
-                {/* Sticky Checkout Bar */}
+                {/* FIXED Sticky Checkout Bar: Changed bottom-0 to bottom-16 on mobile so it floats right above your tab bar */}
                 {billItems.length > 0 && (
-                    <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] p-4 sm:p-6 z-30 pb-safe">
+                    <div className="fixed bottom-16 md:bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] p-4 sm:p-6 z-30 pb-safe">
                         <div className="max-w-2xl mx-auto">
                             <div className="flex justify-between items-end mb-4">
                                 <span className="text-gray-500 font-extrabold uppercase tracking-widest text-sm">Grand Total</span>
