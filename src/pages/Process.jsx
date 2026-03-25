@@ -108,7 +108,7 @@ const Process = () => {
             rate: rateVal,
             weightInput: "1",
             weight: 1,
-            unit: 'kg', // Default unit for custom
+            unit: 'kg',
             total: rateVal * 1,
         };
         setBillItems(prev => [...prev, newItem]);
@@ -209,16 +209,14 @@ const Process = () => {
                         </div>
                     </div>
 
-                    {/* FIXED TAP GRID */}
+                    {/* TAP GRID */}
                     {!billCalculated && (
                         <div>
                             <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Items</h2>
-                            {/* Changed to grid-cols-2 on mobile, added auto-rows-fr for equal heights */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-fr">
                                 {availableItems.map(item => (
                                     <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-full">
                                         <span className="font-extrabold text-sm text-gray-800 leading-tight mb-3 line-clamp-2">{item.name}</span>
-                                        {/* mt-auto pushes the price tag to the bottom consistently */}
                                         <span className="mt-auto text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">₹{item.rate}/{item.unit}</span>
                                     </div>
                                 ))}
@@ -242,21 +240,22 @@ const Process = () => {
                                     )}
                                     <h4 className="font-extrabold text-lg text-gray-900 pr-8">{item.name}</h4>
 
-                                    <div className="flex gap-3 mt-3">
+                                    {/* FIXED: Added items-end, min-w-0 to children, and removed tracking-widest */}
+                                    <div className="flex gap-2 mt-3 items-end">
                                         {/* Editable Price */}
-                                        <div className="flex-1">
-                                            <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Rate (₹)</label>
-                                            <input type="number" value={item.rateInput} disabled={billCalculated} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full mt-1 p-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70" />
+                                        <div className="flex-1 min-w-0">
+                                            <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Rate (₹)</label>
+                                            <input type="number" value={item.rateInput} disabled={billCalculated} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70 min-w-0" />
                                         </div>
                                         {/* Editable Weight */}
-                                        <div className="flex-1">
-                                            <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Qty/Wt</label>
-                                            <input type="number" value={item.weightInput} disabled={billCalculated} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} className="w-full mt-1 p-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70" />
+                                        <div className="flex-1 min-w-0">
+                                            <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Qty/Wt</label>
+                                            <input type="number" value={item.weightInput} disabled={billCalculated} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} className="w-full px-2 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70 min-w-0" />
                                         </div>
                                         {/* Item Total */}
-                                        <div className="flex-1 flex flex-col justify-end pb-1 text-right">
-                                            <label className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Total</label>
-                                            <div className="font-extrabold text-lg text-gray-900">₹{item.total.toFixed(2)}</div>
+                                        <div className="flex-1 min-w-0 text-right pb-1">
+                                            <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Total</label>
+                                            <div className="font-extrabold text-lg text-gray-900 truncate">₹{item.total.toFixed(2)}</div>
                                         </div>
                                     </div>
                                 </div>
