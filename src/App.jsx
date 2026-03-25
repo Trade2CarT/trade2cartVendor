@@ -20,9 +20,6 @@ import { FaHome, FaUser, FaBoxOpen } from 'react-icons/fa';
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
-// ----------------------------------------------------
-// AUTH CHECKER (initial page /)
-// ----------------------------------------------------
 const AuthChecker = () => {
     const [destination, setDestination] = useState(null);
 
@@ -58,9 +55,6 @@ const AuthChecker = () => {
     return <Navigate to={destination} replace />;
 };
 
-// ----------------------------------------------------
-// BOTTOM NAVIGATION
-// ----------------------------------------------------
 const BottomNav = () => {
     const location = useLocation();
     const navItems = [
@@ -86,14 +80,11 @@ const BottomNav = () => {
     );
 };
 
-// ----------------------------------------------------
-// PROTECTED ROUTE (STRICT LOCKDOWN APPLIED)
-// ----------------------------------------------------
 const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
-    const location = useLocation(); // Keep track of where the user is trying to go
+    const location = useLocation();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -119,17 +110,14 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // --- NEW STRICT ROUTING LOGIC ---
+    // --- STRICT STATUS ROUTING ---
     if (!vendor) {
-        // Not registered at all -> Lock to /register
         if (location.pathname !== '/register') return <Navigate to="/register" replace />;
     } else {
-        // Registered -> Check their approval status
         if (vendor.status !== 'approved') {
-            // Still pending or rejected -> Lock to /pending
+            // Lock unapproved vendors out of the rest of the app
             if (location.pathname !== '/pending') return <Navigate to="/pending" replace />;
         } else {
-            // Fully approved -> Let them in, but stop them from going back to register/pending
             if (location.pathname === '/register' || location.pathname === '/pending') {
                 return <Navigate to="/dashboard" replace />;
             }
@@ -153,9 +141,6 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     );
 };
 
-// ----------------------------------------------------
-// PUBLIC ROUTE
-// ----------------------------------------------------
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -172,9 +157,6 @@ const PublicRoute = () => {
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
-// ----------------------------------------------------
-// APP
-// ----------------------------------------------------
 function App() {
     const [installPrompt, setInstallPrompt] = useState(null);
 

@@ -53,7 +53,6 @@ const Dashboard = () => {
     const [activeTab, setActiveTab] = useState('assigned');
     const [showPriceModal, setShowPriceModal] = useState(false);
 
-    // --- ENHANCEMENT 5: Pull to Refresh Logic ---
     const [isRefreshing, setIsRefreshing] = useState(false);
     const startY = useRef(0);
 
@@ -67,7 +66,7 @@ const Dashboard = () => {
             if (y - startY.current > 150) {
                 setIsRefreshing(true);
                 setTimeout(() => {
-                    window.location.reload(); // Quick refresh action
+                    window.location.reload();
                 }, 1000);
             }
         }
@@ -98,6 +97,26 @@ const Dashboard = () => {
     }, [vendor]);
 
     if (loading) return <DashboardSkeleton />;
+
+    // --- RESTORED: Profile Under Review Lock ---
+    if (vendor?.status === 'pending' || vendor?.status === 'rejected') {
+        const isPending = vendor.status === 'pending';
+        return (
+            <div className="min-h-[80vh] flex flex-col items-center justify-center text-center p-4 bg-gray-50">
+                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full border border-gray-100">
+                    <FaTasks className={`text-6xl mx-auto mb-6 ${isPending ? 'text-yellow-500' : 'text-red-500'}`} />
+                    <h1 className={`text-2xl font-extrabold ${isPending ? 'text-gray-900' : 'text-red-800'}`}>
+                        {isPending ? 'Profile Under Review' : 'Profile Rejected'}
+                    </h1>
+                    <p className={`mt-3 font-medium ${isPending ? 'text-gray-600' : 'text-red-600'}`}>
+                        {isPending
+                            ? "We are verifying your documents. This usually takes 24-48 hours. We'll notify you once approved."
+                            : "Your profile could not be approved. Please contact support."}
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     const totalEarningsToday = processedOrders
         .filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString())
