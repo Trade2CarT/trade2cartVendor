@@ -209,21 +209,23 @@ const Process = () => {
                         </div>
                     </div>
 
-                    {/* TAP GRID (Like User Side Schedule) */}
+                    {/* FIXED TAP GRID */}
                     {!billCalculated && (
                         <div>
                             <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Items</h2>
-                            <div className="grid grid-cols-3 gap-3">
+                            {/* Changed to grid-cols-2 on mobile, added auto-rows-fr for equal heights */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-fr">
                                 {availableItems.map(item => (
-                                    <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300">
-                                        <span className="font-extrabold text-sm text-gray-800 leading-tight mb-1">{item.name}</span>
-                                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">₹{item.rate}/{item.unit}</span>
+                                    <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-full">
+                                        <span className="font-extrabold text-sm text-gray-800 leading-tight mb-3 line-clamp-2">{item.name}</span>
+                                        {/* mt-auto pushes the price tag to the bottom consistently */}
+                                        <span className="mt-auto text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">₹{item.rate}/{item.unit}</span>
                                     </div>
                                 ))}
                                 {/* Custom Item Button */}
-                                <div onClick={() => setShowCustomModal(true)} className="bg-blue-50 p-3 rounded-2xl border-2 border-dashed border-blue-400 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-blue-700">
-                                    <FaPlus className="text-lg mb-1" />
-                                    <span className="font-extrabold text-xs">Custom</span>
+                                <div onClick={() => setShowCustomModal(true)} className="bg-blue-50 p-3 rounded-2xl border-2 border-dashed border-blue-400 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-blue-700 h-full">
+                                    <FaPlus className="text-xl mb-2" />
+                                    <span className="mt-auto font-extrabold text-sm">Custom</span>
                                 </div>
                             </div>
                         </div>
