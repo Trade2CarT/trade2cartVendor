@@ -1,34 +1,39 @@
 import React from 'react';
+import logo from '../assets/images/logo.PNG'; // Pulls your Trade2Cart logo
 
 const Loader = ({ fullscreen = false }) => {
-  // A universal, modern skeleton UI that looks good on any page
-  const SkeletonUI = () => (
-    <div className="w-full max-w-sm mx-auto p-6 animate-pulse flex flex-col items-center justify-center space-y-6">
-      {/* Pulsing Avatar/Logo Placeholder */}
-      <div className="w-24 h-24 bg-gray-200 rounded-full shadow-sm"></div>
+  const PremiumLoader = () => (
+    <div className="flex flex-col items-center justify-center">
+      <div className="relative flex items-center justify-center">
+        {/* Background soft ring */}
+        <div className="absolute w-28 h-28 border-4 border-blue-100 rounded-full"></div>
 
-      {/* Text Placeholders */}
-      <div className="w-3/4 h-6 bg-gray-200 rounded-lg mt-4"></div>
-      <div className="w-1/2 h-4 bg-gray-200 rounded-lg"></div>
+        {/* Smooth spinning accent ring */}
+        <div className="absolute w-28 h-28 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
 
-      {/* Input/Button Placeholders */}
-      <div className="w-full h-14 bg-gray-200 rounded-2xl mt-8"></div>
-      <div className="w-full h-14 bg-gray-200 rounded-2xl"></div>
-      <div className="w-full h-14 bg-gray-200 rounded-2xl"></div>
+        {/* Central breathing logo card */}
+        <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center z-10 animate-pulse">
+          <img src={logo} alt="Loading" className="w-12 h-12 object-contain drop-shadow-sm" />
+        </div>
+      </div>
+      {/* Pulsing subtle text */}
+      <p className="mt-6 text-blue-600 font-extrabold tracking-widest text-sm uppercase animate-pulse">
+        Please Wait
+      </p>
     </div>
   );
 
   if (fullscreen) {
     return (
-      <div className="fixed inset-0 min-h-screen w-full flex flex-col items-center justify-center bg-white z-50 backdrop-blur-sm">
-        <SkeletonUI />
+      <div className="fixed inset-0 min-h-screen w-full flex flex-col items-center justify-center bg-white/90 z-50 backdrop-blur-md">
+        <PremiumLoader />
       </div>
     );
   }
 
   return (
-    <div className="w-full flex justify-center items-center py-8">
-      <SkeletonUI />
+    <div className="w-full h-full flex justify-center items-center py-8">
+      <PremiumLoader />
     </div>
   );
 };
