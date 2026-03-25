@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
-import { auth, db } from '/src/firebase';
+import {  db } from '/src/firebase';
 import logo from '/src/assets/images/logo.PNG';
 import SEO from '/src/components/SEO';
 import Loader from './Loader';
@@ -58,7 +58,7 @@ const OtpPage = () => {
             const snapshot = await get(vendorRef);
             if (snapshot.exists()) navigate('/dashboard');
             else navigate('/register');
-        } catch (error) {
+        } catch  {
             toast.error('Incorrect OTP. Please try again.');
         } finally {
             setLoading(false);

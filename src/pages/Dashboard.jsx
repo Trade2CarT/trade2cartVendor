@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { useVendor } from '../App';
@@ -50,7 +50,7 @@ const DashboardSkeleton = () => (
 );
 
 const Dashboard = () => {
-    const navigate = useNavigate();
+    // const navigate = useNavigate();
     const { vendor } = useVendor();
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);

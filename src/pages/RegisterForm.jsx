@@ -67,7 +67,7 @@ const RegisterForm = () => {
                     setLocations(snapshot.val());
                     if (snapshot.val().length > 0) setFormData(prev => ({ ...prev, location: snapshot.val()[0] }));
                 }
-            } catch (error) { toast.error("Error fetching locations."); }
+            } catch  { toast.error("Error fetching locations."); }
             finally { setIsFetching(false); }
         };
         fetchLocations();
@@ -148,7 +148,7 @@ const RegisterForm = () => {
             });
             toast.success('Registration submitted!');
             navigate('/pending');
-        } catch (error) { toast.error("Registration failed."); }
+        } catch  { toast.error("Registration failed."); }
         finally { setLoading(false); setLoaderText(''); }
     };
 
