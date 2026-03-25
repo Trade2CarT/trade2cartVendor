@@ -20,6 +20,9 @@ import { FaHome, FaUser, FaBoxOpen } from 'react-icons/fa';
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
+// ----------------------------------------------------
+// AUTH CHECKER (initial page /)
+// ----------------------------------------------------
 const AuthChecker = () => {
     const [destination, setDestination] = useState(null);
 
@@ -34,6 +37,7 @@ const AuthChecker = () => {
                 const snapshot = await get(vendorRef);
                 if (snapshot.exists()) {
                     const vendor = snapshot.val();
+                    // STRICT CHECK: Only approved users go to Dashboard
                     if (vendor.status === "approved") {
                         setDestination("/dashboard");
                     } else {
@@ -54,12 +58,14 @@ const AuthChecker = () => {
     return <Navigate to={destination} replace />;
 };
 
-// --- ENHANCEMENT 1: Bottom Navigation Bar ---
+// ----------------------------------------------------
+// BOTTOM NAVIGATION
+// ----------------------------------------------------
 const BottomNav = () => {
     const location = useLocation();
     const navItems = [
         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
-        { path: '/process/orders', icon: <FaBoxOpen size={24} />, label: 'Orders' }, // Adjust path based on your route
+        { path: '/process/orders', icon: <FaBoxOpen size={24} />, label: 'Orders' },
         { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
     ];
 
@@ -80,10 +86,14 @@ const BottomNav = () => {
     );
 };
 
+// ----------------------------------------------------
+// PROTECTED ROUTE (STRICT LOCKDOWN APPLIED)
+// ----------------------------------------------------
 const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
+    const location = useLocation(); // Keep track of where the user is trying to go
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -108,8 +118,23 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
 
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
-    if (!vendor && hasLayout) return <Navigate to="/register" replace />;
-    if (vendor && !hasLayout) return <Navigate to="/dashboard" replace />;
+
+    // --- NEW STRICT ROUTING LOGIC ---
+    if (!vendor) {
+        // Not registered at all -> Lock to /register
+        if (location.pathname !== '/register') return <Navigate to="/register" replace />;
+    } else {
+        // Registered -> Check their approval status
+        if (vendor.status !== 'approved') {
+            // Still pending or rejected -> Lock to /pending
+            if (location.pathname !== '/pending') return <Navigate to="/pending" replace />;
+        } else {
+            // Fully approved -> Let them in, but stop them from going back to register/pending
+            if (location.pathname === '/register' || location.pathname === '/pending') {
+                return <Navigate to="/dashboard" replace />;
+            }
+        }
+    }
 
     return (
         <VendorContext.Provider value={contextValue}>
@@ -128,6 +153,9 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     );
 };
 
+// ----------------------------------------------------
+// PUBLIC ROUTE
+// ----------------------------------------------------
 const PublicRoute = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -144,6 +172,9 @@ const PublicRoute = () => {
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
 };
 
+// ----------------------------------------------------
+// APP
+// ----------------------------------------------------
 function App() {
     const [installPrompt, setInstallPrompt] = useState(null);
 
@@ -166,19 +197,23 @@ function App() {
             <Router>
                 <Routes>
                     <Route path="/" element={<AuthChecker />} />
+
                     <Route element={<PublicRoute />}>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/otp" element={<OtpPage />} />
                     </Route>
+
                     <Route element={<ProtectedRoute installPrompt={installPrompt} handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
+
                     <Route element={<ProtectedRoute installPrompt={installPrompt} hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                         <Route path="/pending" element={<PendingPage />} />
                     </Route>
+
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
