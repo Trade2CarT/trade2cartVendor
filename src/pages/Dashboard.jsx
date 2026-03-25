@@ -160,9 +160,9 @@ const Dashboard = () => {
                         <button onClick={() => setActiveTab('assigned')} className={`flex-1 py-4 font-extrabold text-lg transition-colors ${activeTab === 'assigned' ? 'border-b-4 border-blue-600 text-blue-700' : 'text-gray-500'}`}>
                             Assigned ({assignedOrders.length})
                         </button>
-                        <button onClick={() => setActiveTab('processed')} className={`flex-1 py-4 font-extrabold text-lg transition-colors ${activeTab === 'processed' ? 'border-b-4 border-green-600 text-green-700' : 'text-gray-500'}`}>
+                        {/* <button onClick={() => setActiveTab('processed')} className={`flex-1 py-4 font-extrabold text-lg transition-colors ${activeTab === 'processed' ? 'border-b-4 border-green-600 text-green-700' : 'text-gray-500'}`}>
                             Completed ({processedOrders.length})
-                        </button>
+                        </button> */}
                     </div>
 
                     <div className="p-4">
