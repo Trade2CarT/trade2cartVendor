@@ -4,9 +4,9 @@ import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { auth, db } from '/src/firebase';
 import logo from '/src/assets/images/logo.PNG';
-// import Loader from '/src/components/Loader';
 import SEO from '/src/components/SEO';
 import Loader from './Loader';
+import { FaEdit } from 'react-icons/fa'; // Added icon
 
 const OtpPage = () => {
     const [otp, setOtp] = useState(new Array(6).fill(''));
@@ -28,9 +28,7 @@ const OtpPage = () => {
         newOtp[index] = value;
         setOtp(newOtp);
 
-        if (value && index < 5) {
-            inputsRef.current[index + 1]?.focus();
-        }
+        if (value && index < 5) inputsRef.current[index + 1]?.focus();
     };
 
     const handleKeyDown = (e, index) => {
@@ -41,9 +39,7 @@ const OtpPage = () => {
 
     const handleSubmit = async () => {
         const enteredOtp = otp.join('');
-        if (enteredOtp.length !== 6) {
-            return toast.error('Please enter the 6-digit OTP.');
-        }
+        if (enteredOtp.length !== 6) return toast.error('Please enter the 6-digit OTP.');
         setLoading(true);
 
         try {
@@ -60,50 +56,45 @@ const OtpPage = () => {
 
             const vendorRef = ref(db, `vendors/${user.uid}`);
             const snapshot = await get(vendorRef);
-
-            if (snapshot.exists()) {
-                navigate('/dashboard');
-            } else {
-                navigate('/register');
-            }
-
+            if (snapshot.exists()) navigate('/dashboard');
+            else navigate('/register');
         } catch (error) {
-            console.error('OTP Page Error:', error);
-            if (error.code === 'auth/invalid-verification-code') {
-                toast.error('Incorrect OTP. Please try again.');
-            } else {
-                toast.error('An unexpected error occurred. Please try again.');
-            }
+            toast.error('Incorrect OTP. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    if (loading) {
-        return <Loader
-            fullscreen />;
-    }
+    if (loading) return <Loader fullscreen />;
 
     return (
         <>
-            <SEO
-                title="Verify OTP - Trade2Cart Vendor"
-                description="Enter the OTP to securely log in to your vendor account."
-            />
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-                <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-2xl shadow-lg text-center">
-                    <img src={logo} alt="Trade2Cart Logo" className="w-20 h-20 mx-auto mb-4" />
+            <SEO title="Verify OTP - Trade2Cart Vendor" />
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-teal-100 p-4">
+                <div className="w-full max-w-sm mx-auto bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl text-center relative border border-white">
+                    <img src={logo} alt="Trade2Cart Logo" className="w-20 h-20 mx-auto mb-4 drop-shadow-sm" />
                     <h2 className="text-2xl font-bold text-gray-800">Verify Your Number</h2>
-                    <p className="text-gray-500 mt-2 mb-6">Enter the 6-digit OTP sent to +91 {phone}.</p>
 
-                    <div className="flex justify-center gap-2 mb-6">
+                    {/* --- ENHANCEMENT: Edit Phone Number UI --- */}
+                    <div className="flex items-center justify-center gap-2 mt-2 mb-6 text-gray-600 font-medium">
+                        <span>Sent to +91 {phone}</span>
+                        <button
+                            onClick={() => navigate('/')}
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                            title="Edit phone number"
+                        >
+                            <FaEdit />
+                        </button>
+                    </div>
+
+                    <div className="flex justify-center gap-2 mb-8">
                         {otp.map((data, index) => (
                             <input
                                 key={index}
                                 ref={el => inputsRef.current[index] = el}
                                 type="text"
                                 maxLength="1"
-                                className="w-12 h-14 text-center text-2xl font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-green-500 bg-gray-50 focus:bg-white transition-all"
                                 value={data}
                                 onChange={(e) => handleChange(e, index)}
                                 onKeyDown={(e) => handleKeyDown(e, index)}
@@ -114,17 +105,10 @@ const OtpPage = () => {
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-transform transform hover:scale-105 disabled:bg-gray-400"
+                        className="w-full py-3.5 bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-70 disabled:scale-100"
                     >
                         {loading ? 'Verifying...' : 'Verify & Continue'}
                     </button>
-
-                    <p className="text-sm text-gray-500 mt-4">
-                        Didn't receive the code?{' '}
-                        <span className="font-semibold text-blue-600 cursor-pointer" onClick={() => navigate('/')}>
-                            Request again
-                        </span>
-                    </p>
                 </div>
             </div>
         </>
