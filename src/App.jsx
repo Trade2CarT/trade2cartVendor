@@ -15,7 +15,8 @@ import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 import PendingPage from './pages/PendingPage';
-import { FaHome, FaUser, FaBoxOpen } from 'react-icons/fa';
+import HistoryPage from './pages/HistoryPage.jsx'; // <-- IMPORTED NEW PAGE
+import { FaHome, FaUser, FaHistory } from 'react-icons/fa'; // <-- CHANGED ICON
 
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
@@ -34,7 +35,6 @@ const AuthChecker = () => {
                 const snapshot = await get(vendorRef);
                 if (snapshot.exists()) {
                     const vendor = snapshot.val();
-                    // STRICT CHECK: Only approved users go to Dashboard
                     if (vendor.status === "approved") {
                         setDestination("/dashboard");
                     } else {
@@ -55,38 +55,12 @@ const AuthChecker = () => {
     return <Navigate to={destination} replace />;
 };
 
-// const BottomNav = () => {
-//     const location = useLocation();
-//     const navItems = [
-//         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
-//         { path: '/process/orders', icon: <FaBoxOpen size={24} />, label: 'Orders' },
-//         { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
-//     ];
-
-//     return (
-//         <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50 md:hidden pb-safe">
-//             <div className="flex justify-around items-center h-16">
-//                 {navItems.map((item) => {
-//                     const isActive = location.pathname.startsWith(item.path);
-//                     return (
-//                         <Link key={item.path} to={item.path} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
-//                             {item.icon}
-//                             <span className="text-[10px] font-bold mt-1">{item.label}</span>
-//                         </Link>
-//                     );
-//                 })}
-//             </div>
-//         </nav>
-//     );
-// };
-
-// ----------------------------------------------------
-// BOTTOM NAVIGATION
-// ----------------------------------------------------
+// --- UPDATED BOTTOM NAV (Fixed Error) ---
 const BottomNav = () => {
     const location = useLocation();
     const navItems = [
         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
+        { path: '/history', icon: <FaHistory size={24} />, label: 'History' }, // <-- UPDATED ROUTE
         { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
     ];
 
@@ -106,6 +80,7 @@ const BottomNav = () => {
         </nav>
     );
 };
+
 const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
@@ -136,12 +111,10 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     if (loading) return <Loader fullscreen />;
     if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-    // --- STRICT STATUS ROUTING ---
     if (!vendor) {
         if (location.pathname !== '/register') return <Navigate to="/register" replace />;
     } else {
         if (vendor.status !== 'approved') {
-            // Lock unapproved vendors out of the rest of the app
             if (location.pathname !== '/pending') return <Navigate to="/pending" replace />;
         } else {
             if (location.pathname === '/register' || location.pathname === '/pending') {
@@ -214,6 +187,7 @@ function App() {
                     <Route element={<ProtectedRoute installPrompt={installPrompt} handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
+                        <Route path="/history" element={<HistoryPage />} /> {/* <-- NEW ROUTE ADDED */}
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
 
