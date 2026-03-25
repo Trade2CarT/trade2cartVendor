@@ -8,8 +8,9 @@ import SEO from '../components/SEO';
 import Loader from './Loader';
 
 const LoaderOverlay = () => (
-    <div className="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center rounded-2xl z-10 backdrop-blur-sm">
+    <div className="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center rounded-3xl z-10 backdrop-blur-sm">
         <Loader />
+        <p className="mt-4 font-extrabold text-xl text-gray-800">Please wait...</p>
     </div>
 );
 
@@ -22,22 +23,18 @@ const LoginPage = () => {
         if (!window.recaptchaVerifier) {
             window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
                 'size': 'invisible',
-                'callback': (response) => { }
             });
         }
     }, []);
 
     const handleGetOtp = async () => {
-        if (phone.length !== 10) {
-            return toast.error('Please enter a valid 10-digit mobile number.');
-        }
+        if (phone.length !== 10) return toast.error('Please enter a valid 10-digit mobile number.');
         setLoading(true);
 
         try {
             const verifier = window.recaptchaVerifier;
             const fullPhoneNumber = `+91${phone}`;
             const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, verifier);
-
             window.confirmationResult = confirmationResult;
             toast.success('OTP sent successfully!');
             navigate('/otp', { state: { phone } });
@@ -50,25 +47,27 @@ const LoginPage = () => {
 
     return (
         <>
-            <SEO title="Trade2Cart Vendor Login" description="Login to your Trade2Cart vendor account." />
-            {/* --- ENHANCEMENT: Soft Branded Background Gradient --- */}
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-blue-50 to-teal-100 p-4">
+            <SEO title="Trade2Cart Vendor Login" />
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
                 <div id="recaptcha-container"></div>
 
-                <div className="w-full max-w-sm mx-auto bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-xl text-center relative border border-white">
+                <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-3xl shadow-xl text-center relative border border-gray-100">
                     {loading && <LoaderOverlay />}
 
-                    <img src={logo} alt="Trade2Cart Logo" className="w-24 h-24 mx-auto mb-6 drop-shadow-sm" />
-                    <h2 className="text-3xl font-extrabold text-gray-800">Welcome Back</h2>
-                    <p className="text-gray-500 mt-2 mb-8">Enter your phone number to continue as a partner.</p>
+                    <img src={logo} alt="Trade2Cart Logo" className="w-24 h-24 mx-auto mb-6" />
+                    <h2 className="text-3xl font-extrabold text-gray-900">Partner Login</h2>
+                    <p className="text-gray-600 font-medium mt-2 mb-8">Enter your mobile number to continue.</p>
 
-                    <div className="relative group">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 font-medium">+91</span>
+                    <div className="relative group flex items-center mb-6">
+                        <span className="absolute left-4 text-gray-800 font-extrabold text-xl">+91</span>
+                        {/* --- ENHANCEMENT 3: Smart Keypad --- */}
                         <input
                             type="tel"
+                            inputMode="numeric"
+                            autoComplete="tel"
                             maxLength="10"
-                            placeholder="Mobile number"
-                            className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:bg-white transition-all text-lg font-medium tracking-wide"
+                            placeholder="Mobile Number"
+                            className="w-full pl-16 pr-4 py-4 bg-gray-100 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-blue-600 focus:bg-white text-2xl font-extrabold text-gray-900 tracking-wider"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                         />
@@ -77,9 +76,9 @@ const LoginPage = () => {
                     <button
                         onClick={handleGetOtp}
                         disabled={loading}
-                        className="w-full mt-8 py-3.5 bg-gradient-to-r from-green-500 to-teal-600 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-70 disabled:scale-100"
+                        className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform disabled:opacity-70"
                     >
-                        {loading ? 'Sending OTP...' : 'Get OTP'}
+                        Get OTP
                     </button>
                 </div>
             </div>

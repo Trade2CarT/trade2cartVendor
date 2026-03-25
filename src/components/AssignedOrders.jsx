@@ -3,16 +3,50 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
-import { FaPhoneAlt, FaMapPin, FaRupeeSign } from 'react-icons/fa';
+import { FaPhoneAlt, FaMapPin, FaRupeeSign, FaAngleDoubleRight } from 'react-icons/fa';
 
-// OTP Modal Component
+// --- ENHANCEMENT 2: Swipe to Process Action ---
+const SwipeButton = ({ onSwipeSuccess }) => {
+    const [sliderPos, setSliderPos] = useState(0);
+    const sliderRef = useRef(null);
+
+    const handleTouchMove = (e) => {
+        if (!sliderRef.current) return;
+        const rect = sliderRef.current.getBoundingClientRect();
+        const touch = e.touches[0];
+        let newPos = touch.clientX - rect.left - 24; // 24 is half of knob width
+        newPos = Math.max(0, Math.min(newPos, rect.width - 48));
+        setSliderPos(newPos);
+
+        if (newPos >= rect.width - 55) {
+            onSwipeSuccess();
+            setSliderPos(0);
+        }
+    };
+
+    const handleTouchEnd = () => setSliderPos(0);
+
+    return (
+        <div ref={sliderRef} className="relative w-full h-14 bg-gray-200 rounded-full overflow-hidden flex items-center shadow-inner mt-4">
+            <div className="absolute left-0 top-0 h-full bg-blue-500 transition-all duration-75" style={{ width: `${sliderPos + 24}px` }} />
+            <span className="absolute w-full text-center text-gray-600 font-extrabold text-sm pointer-events-none z-10">SWIPE TO PROCESS</span>
+            <div
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                className="absolute left-1 h-12 w-12 bg-white rounded-full shadow-md flex items-center justify-center text-blue-600 z-20"
+                style={{ transform: `translateX(${sliderPos}px)` }}
+            >
+                <FaAngleDoubleRight size={20} />
+            </div>
+        </div>
+    );
+};
+
 const OtpModal = ({ order, onClose, onVerify, loading }) => {
     const [otp, setOtp] = useState(new Array(4).fill(''));
     const inputsRef = useRef([]);
 
-    useEffect(() => {
-        inputsRef.current[0]?.focus();
-    }, []);
+    useEffect(() => { inputsRef.current[0]?.focus(); }, []);
 
     const handleChange = (e, index) => {
         const { value } = e.target;
@@ -20,56 +54,45 @@ const OtpModal = ({ order, onClose, onVerify, loading }) => {
         const newOtp = [...otp];
         newOtp[index] = value;
         setOtp(newOtp);
-        if (value && index < 3) {
-            inputsRef.current[index + 1]?.focus();
-        }
-    };
-
-    const handleKeyDown = (e, index) => {
-        if (e.key === 'Backspace' && !otp[index] && index > 0) {
-            inputsRef.current[index - 1]?.focus();
-        }
+        if (value && index < 3) inputsRef.current[index + 1]?.focus();
     };
 
     const handleVerifyClick = () => {
         const enteredOtp = otp.join('');
-        if (enteredOtp.length === 4) {
-            onVerify(enteredOtp);
-        } else {
-            toast.error("Please enter the 4-digit OTP.");
-        }
+        if (enteredOtp.length === 4) onVerify(enteredOtp);
+        else toast.error("Please enter the 4-digit OTP.");
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center">
-                <h3 className="text-xl font-bold text-gray-800">Order Verification</h3>
-                <p className="text-gray-600 mt-2">Enter the 4-digit OTP from the customer's app to process the order.</p>
-                <div className="my-6 flex justify-center gap-3">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-end sm:items-center justify-center z-50 p-4 pb-10">
+            <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-md text-center animate-slide-up">
+                <h3 className="text-2xl font-extrabold text-gray-900">Order Verification</h3>
+                <p className="text-gray-700 mt-2 font-medium">Enter the 4-digit OTP from the customer.</p>
+                <div className="my-8 flex justify-center gap-4">
                     {otp.map((digit, i) => (
                         <input
                             key={i}
                             ref={el => inputsRef.current[i] = el}
                             type="tel"
+                            inputMode="numeric"
+                            autoComplete="one-time-code" // --- ENHANCEMENT 3: Smart Auto-Fill ---
                             maxLength="1"
                             value={digit}
                             onChange={e => handleChange(e, i)}
-                            onKeyDown={e => handleKeyDown(e, i)}
-                            className="w-14 h-16 text-center text-3xl font-bold border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            className="w-16 h-20 text-center text-4xl font-extrabold border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500 focus:border-blue-600 bg-gray-50"
                         />
                     ))}
                 </div>
-                <div className="flex gap-4">
-                    <button onClick={onClose} className="w-full py-3 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                    <button onClick={handleVerifyClick} disabled={loading} className="w-full py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-400">
-                        {loading ? 'Verifying...' : 'Verify & Proceed'}
+                <div className="flex flex-col gap-3">
+                    <button onClick={handleVerifyClick} disabled={loading} className="w-full py-4 bg-green-600 text-white font-extrabold text-xl rounded-xl hover:bg-green-700 shadow-lg">
+                        {loading ? 'Verifying...' : 'Verify OTP'}
                     </button>
+                    <button onClick={onClose} className="w-full py-4 bg-gray-200 text-gray-800 font-bold text-lg rounded-xl hover:bg-gray-300">Cancel</button>
                 </div>
             </div>
         </div>
     );
 };
-
 
 const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const navigate = useNavigate();
@@ -77,14 +100,11 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
     const [verifyLoading, setVerifyLoading] = useState(false);
 
     const handleProcessOrder = async (enteredOtp) => {
-        if (!otpModalOrder || !otpModalOrder.userId) {
-            return toast.error("Cannot process order: User ID is missing.");
-        }
         setVerifyLoading(true);
         try {
             const userRef = ref(db, `users/${otpModalOrder.userId}`);
             const userSnapshot = await get(userRef);
-            if (!userSnapshot.exists()) throw new Error("Customer data could not be found!");
+            if (!userSnapshot.exists()) throw new Error("Customer data not found!");
 
             const userData = userSnapshot.val();
             if (String(userData.otp) === String(enteredOtp)) {
@@ -92,7 +112,7 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                 setOtpModalOrder(null);
                 navigate(`/process/${otpModalOrder.id}`);
             } else {
-                toast.error("Invalid OTP. Please check again.");
+                toast.error("Invalid OTP.");
             }
         } catch (error) {
             toast.error(error.message);
@@ -102,52 +122,34 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
     };
 
     return (
-        <div className="overflow-x-auto">
+        <div className="flex flex-col gap-4">
             {assignedOrders.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No new orders assigned. Check back later!</p>
+                <p className="text-center text-gray-500 py-8 font-bold">No new orders assigned.</p>
             ) : (
-                <table className="w-full text-sm text-left text-gray-600">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                        <tr>
-                            <th className="px-4 py-3">Customer Details</th>
-                            <th className="px-4 py-3">Est. Amount</th>
-                            <th className="px-4 py-3">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {assignedOrders.map(order => {
-                            const estimatedTotal = order.totalAmount || '0.00';
+                assignedOrders.map(order => (
+                    <div key={order.id} className="bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm relative">
+                        <div className="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 className="font-extrabold text-xl text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</h3>
+                                <p className="text-sm text-gray-700 mt-1 flex items-start gap-2 font-medium">
+                                    <FaMapPin className="text-red-500 mt-0.5" />
+                                    <span>{usersMap[order.userId]?.address || 'No address provided'}</span>
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <span className="block text-sm font-bold text-gray-500 uppercase tracking-wide">Est. Total</span>
+                                <span className="text-2xl font-extrabold text-green-600 flex items-center justify-end">
+                                    <FaRupeeSign size={20} />{parseFloat(order.totalAmount || 0).toFixed(0)}
+                                </span>
+                            </div>
+                        </div>
+                        <a href={`tel:${order.mobile}`} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-lg mb-2">
+                            <FaPhoneAlt /> Call {order.mobile}
+                        </a>
 
-                            return (
-                                <tr key={order.id} className="bg-white border-b hover:bg-gray-50">
-                                    <td className="px-4 py-4">
-                                        <p className="font-semibold text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</p>
-                                        <p className="text-xs text-gray-500 mt-1 flex items-start gap-2">
-                                            <FaMapPin className="flex-shrink-0 mt-0.5" />
-                                            <span>{usersMap[order.userId]?.address || 'No address provided'}</span>
-                                        </p>
-                                        <a href={`tel:${order.mobile}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline mt-2">
-                                            <FaPhoneAlt size={10} /> {order.mobile}
-                                        </a>
-                                    </td>
-
-                                    <td className="px-4 py-4 font-semibold text-gray-800 align-top">
-                                        <div className="flex items-center gap-1">
-                                            <FaRupeeSign size={12} />
-                                            {parseFloat(estimatedTotal).toFixed(2)}
-                                        </div>
-                                    </td>
-
-                                    <td className="px-4 py-4 align-top">
-                                        <button onClick={() => setOtpModalOrder(order)} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg text-xs hover:bg-blue-700">
-                                            Process
-                                        </button>
-                                    </td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
+                        <SwipeButton onSwipeSuccess={() => setOtpModalOrder(order)} />
+                    </div>
+                ))
             )}
             {otpModalOrder && <OtpModal order={otpModalOrder} onClose={() => setOtpModalOrder(null)} onVerify={handleProcessOrder} loading={verifyLoading} />}
         </div>

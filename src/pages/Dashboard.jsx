@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from 'react';
 import { db } from '../firebase';
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { useVendor } from '../App';
-import { FaBoxOpen, FaRupeeSign, FaTasks, FaTag, FaBell, FaInbox } from 'react-icons/fa';
+import { FaBoxOpen, FaRupeeSign, FaTasks, FaTag, FaBell, FaInbox, FaSyncAlt } from 'react-icons/fa';
 import SEO from '../components/SEO';
 import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
@@ -15,42 +14,37 @@ const firebaseObjectToArray = (snapshot) => {
 };
 
 const StatCard = ({ icon, title, value, color }) => (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:shadow-md transition">
+    <div className="bg-white p-5 rounded-2xl shadow-md border-2 border-gray-100 flex items-center gap-4">
         <div className={`p-4 rounded-xl text-white shadow-inner ${color}`}>
             {icon}
         </div>
         <div>
-            <p className="text-sm text-gray-500 font-medium">{title}</p>
-            <p className="text-2xl font-bold text-gray-800">{value}</p>
+            <p className="text-sm text-gray-700 font-bold uppercase tracking-wide">{title}</p>
+            <p className="text-3xl font-extrabold text-gray-900">{value}</p>
         </div>
     </div>
 );
 
-// --- ENHANCEMENT: Empty State Component ---
 const EmptyState = ({ title, description }) => (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200 mt-4">
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 mt-4">
         <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-            <FaInbox className="text-4xl text-gray-300" />
+            <FaInbox className="text-4xl text-gray-400" />
         </div>
-        <h3 className="text-lg font-bold text-gray-700">{title}</h3>
-        <p className="text-gray-500 mt-1 max-w-sm">{description}</p>
+        <h3 className="text-xl font-extrabold text-gray-900">{title}</h3>
+        <p className="text-gray-700 mt-1 max-w-sm font-medium">{description}</p>
     </div>
 );
 
-// --- ENHANCEMENT: Skeleton Loading UI ---
 const DashboardSkeleton = () => (
     <div className="p-6 animate-pulse space-y-6">
-        <div className="h-10 bg-gray-200 rounded w-1/4 mb-6"></div>
+        <div className="h-10 bg-gray-300 rounded w-1/4 mb-6"></div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-gray-200 rounded-2xl"></div>)}
+            {[1, 2, 3].map(i => <div key={i} className="h-24 bg-gray-300 rounded-2xl"></div>)}
         </div>
-        <div className="h-14 bg-gray-200 rounded-xl mt-6"></div>
-        <div className="h-64 bg-gray-200 rounded-xl mt-6"></div>
     </div>
 );
 
 const Dashboard = () => {
-    // const navigate = useNavigate();
     const { vendor } = useVendor();
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
@@ -58,6 +52,28 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('assigned');
     const [showPriceModal, setShowPriceModal] = useState(false);
+
+    // --- ENHANCEMENT 5: Pull to Refresh Logic ---
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const startY = useRef(0);
+
+    const handleTouchStart = (e) => {
+        if (window.scrollY === 0) startY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e) => {
+        if (window.scrollY === 0 && startY.current > 0) {
+            const y = e.touches[0].clientY;
+            if (y - startY.current > 150) {
+                setIsRefreshing(true);
+                setTimeout(() => {
+                    window.location.reload(); // Quick refresh action
+                }, 1000);
+            }
+        }
+    };
+
+    const handleTouchEnd = () => { startY.current = 0; };
 
     useEffect(() => {
         if (!vendor) return;
@@ -83,96 +99,64 @@ const Dashboard = () => {
 
     if (loading) return <DashboardSkeleton />;
 
-    if (vendor?.status === 'pending' || vendor?.status === 'rejected') {
-        const isPending = vendor.status === 'pending';
-        return (
-            <div className="min-h-[80vh] flex flex-col items-center justify-center text-center p-4 bg-gray-50">
-                <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full border border-gray-100">
-                    <FaTasks className={`text-6xl mx-auto mb-6 ${isPending ? 'text-yellow-500' : 'text-red-500'}`} />
-                    <h1 className={`text-2xl font-bold ${isPending ? 'text-gray-800' : 'text-red-800'}`}>
-                        {isPending ? 'Profile Under Review' : 'Profile Rejected'}
-                    </h1>
-                    <p className={`mt-3 ${isPending ? 'text-gray-500' : 'text-red-600'}`}>
-                        {isPending
-                            ? "We are verifying your documents. This usually takes 24-48 hours. We'll notify you once approved."
-                            : "Your profile could not be approved. Please contact support."}
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     const totalEarningsToday = processedOrders
         .filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString())
         .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     const completedTodayCount = processedOrders.filter(o => o.timestamp && new Date(o.timestamp).toDateString() === new Date().toDateString()).length;
 
     return (
-        <>
+        <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} className="min-h-screen">
+            {isRefreshing && (
+                <div className="flex justify-center items-center p-4 text-blue-600 font-bold bg-blue-50">
+                    <FaSyncAlt className="animate-spin mr-2" /> Refreshing...
+                </div>
+            )}
             <SEO title="Dashboard – Trade2Cart" />
             <main className="p-4 md:p-6 bg-gray-50 min-h-screen">
-
-                {/* --- ENHANCEMENT: Header with Notification Center --- */}
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Welcome, {vendor.name.split(' ')[0]} 👋</h1>
-                        <p className="text-sm text-gray-500">Here's your business summary for today.</p>
+                        <h1 className="text-3xl font-extrabold text-gray-900">Welcome, {vendor.name.split(' ')[0]} 👋</h1>
+                        <p className="text-sm font-semibold text-gray-600">Here's your business summary for today.</p>
                     </div>
-                    <button className="relative p-2 bg-white rounded-full shadow-sm hover:bg-gray-50 transition border border-gray-100">
-                        <FaBell className="text-xl text-gray-600" />
-                        <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+                    <button className="relative p-3 bg-white rounded-full shadow-md border border-gray-200">
+                        <FaBell className="text-2xl text-gray-900" />
+                        <span className="absolute top-0 right-0 w-4 h-4 bg-red-600 rounded-full border-2 border-white"></span>
                     </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                    <StatCard icon={<FaBoxOpen size={24} />} title="Pending Orders" value={assignedOrders.length} color="bg-gradient-to-br from-blue-500 to-blue-600" />
-                    <StatCard icon={<FaTasks size={24} />} title="Completed Today" value={completedTodayCount} color="bg-gradient-to-br from-green-500 to-green-600" />
-                    <StatCard icon={<FaRupeeSign size={24} />} title="Earnings Today" value={`₹${totalEarningsToday.toFixed(0)}`} color="bg-gradient-to-br from-purple-500 to-purple-600" />
-                </div>
-
-                {/* --- ENHANCEMENT: Visual Trend Placeholder --- */}
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6 flex justify-between items-center">
-                    <div>
-                        <h3 className="font-bold text-gray-800">Weekly Performance</h3>
-                        <p className="text-sm text-gray-500">You're doing great! Keep up the pace.</p>
-                    </div>
-                    <div className="flex items-end gap-1.5 h-12">
-                        {/* Fake mini bar chart purely for visual polish */}
-                        {[40, 70, 45, 90, 60, 30, 80].map((h, i) => (
-                            <div key={i} className="w-3 bg-green-100 rounded-t-sm" style={{ height: '100%' }}>
-                                <div className="bg-green-500 w-full rounded-t-sm transition-all" style={{ height: `${h}%`, marginTop: `${100 - h}%` }}></div>
-                            </div>
-                        ))}
-                    </div>
+                    <StatCard icon={<FaBoxOpen size={28} />} title="Pending" value={assignedOrders.length} color="bg-blue-600" />
+                    <StatCard icon={<FaTasks size={28} />} title="Completed" value={completedTodayCount} color="bg-green-600" />
+                    <StatCard icon={<FaRupeeSign size={28} />} title="Earnings" value={`₹${totalEarningsToday.toFixed(0)}`} color="bg-purple-600" />
                 </div>
 
                 <div className="mb-6">
-                    <button onClick={() => setShowPriceModal(true)} className="w-full flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all">
-                        <FaTag /> Check Today's Trade Price
+                    <button onClick={() => setShowPriceModal(true)} className="w-full flex items-center justify-center gap-2 py-5 bg-teal-600 text-white font-extrabold text-xl rounded-xl shadow-xl hover:bg-teal-700 transition-all active:scale-95">
+                        <FaTag /> Check Today's Price
                     </button>
                 </div>
 
-                <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
-                    <div className="flex border-b border-gray-100">
-                        <button onClick={() => setActiveTab('assigned')} className={`flex-1 py-4 font-bold text-sm transition-colors ${activeTab === 'assigned' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}>
+                <div className="bg-white p-2 rounded-2xl shadow-md border-2 border-gray-100">
+                    <div className="flex border-b-2 border-gray-200">
+                        <button onClick={() => setActiveTab('assigned')} className={`flex-1 py-4 font-extrabold text-lg transition-colors ${activeTab === 'assigned' ? 'border-b-4 border-blue-600 text-blue-700' : 'text-gray-500'}`}>
                             Assigned ({assignedOrders.length})
                         </button>
-                        <button onClick={() => setActiveTab('processed')} className={`flex-1 py-4 font-bold text-sm transition-colors ${activeTab === 'processed' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-blue-600'}`}>
+                        <button onClick={() => setActiveTab('processed')} className={`flex-1 py-4 font-extrabold text-lg transition-colors ${activeTab === 'processed' ? 'border-b-4 border-green-600 text-green-700' : 'text-gray-500'}`}>
                             Completed ({processedOrders.length})
                         </button>
                     </div>
 
                     <div className="p-4">
                         {activeTab === 'assigned' ? (
-                            assignedOrders.length > 0 ? <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} /> : <EmptyState title="All caught up!" description="You currently have no new assigned orders. We'll notify you when a new pickup arrives." />
+                            assignedOrders.length > 0 ? <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} /> : <EmptyState title="All caught up!" description="No new assigned orders right now." />
                         ) : (
-                            processedOrders.length > 0 ? <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} /> : <EmptyState title="No orders completed yet" description="Your processed pickups will appear here. Complete an order to get started!" />
+                            processedOrders.length > 0 ? <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} /> : <EmptyState title="No orders completed" description="Complete an order to see it here." />
                         )}
                     </div>
                 </div>
             </main>
             {showPriceModal && <TradePriceModal onClose={() => setShowPriceModal(false)} vendorLocation={vendor?.location} />}
-        </>
+        </div>
     );
 };
 
