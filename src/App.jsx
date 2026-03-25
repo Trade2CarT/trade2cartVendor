@@ -55,11 +55,38 @@ const AuthChecker = () => {
     return <Navigate to={destination} replace />;
 };
 
+// const BottomNav = () => {
+//     const location = useLocation();
+//     const navItems = [
+//         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
+//         { path: '/process/orders', icon: <FaBoxOpen size={24} />, label: 'Orders' },
+//         { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
+//     ];
+
+//     return (
+//         <nav className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-50 md:hidden pb-safe">
+//             <div className="flex justify-around items-center h-16">
+//                 {navItems.map((item) => {
+//                     const isActive = location.pathname.startsWith(item.path);
+//                     return (
+//                         <Link key={item.path} to={item.path} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+//                             {item.icon}
+//                             <span className="text-[10px] font-bold mt-1">{item.label}</span>
+//                         </Link>
+//                     );
+//                 })}
+//             </div>
+//         </nav>
+//     );
+// };
+
+// ----------------------------------------------------
+// BOTTOM NAVIGATION
+// ----------------------------------------------------
 const BottomNav = () => {
     const location = useLocation();
     const navItems = [
         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
-        { path: '/process/orders', icon: <FaBoxOpen size={24} />, label: 'Orders' },
         { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
     ];
 
@@ -79,7 +106,6 @@ const BottomNav = () => {
         </nav>
     );
 };
-
 const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [vendor, setVendor] = useState(null);
