@@ -1,49 +1,36 @@
 import React from 'react';
-import styled, { keyframes } from 'styled-components';
-
-const spin = keyframes`
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-`;
-
-const LoaderWrapper = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  width: 100%;
-`;
-
-const Spinner = styled.div`
-  border: 4px solid rgba(0, 0, 0, 0.1);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border-left-color: #2563EB;
-  animation: ${spin} 1s ease infinite;
-`;
-
-const FullscreenWrapper = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 80vh;
-`;
 
 const Loader = ({ fullscreen = false }) => {
+  // A universal, modern skeleton UI that looks good on any page
+  const SkeletonUI = () => (
+    <div className="w-full max-w-sm mx-auto p-6 animate-pulse flex flex-col items-center justify-center space-y-6">
+      {/* Pulsing Avatar/Logo Placeholder */}
+      <div className="w-24 h-24 bg-gray-200 rounded-full shadow-sm"></div>
+
+      {/* Text Placeholders */}
+      <div className="w-3/4 h-6 bg-gray-200 rounded-lg mt-4"></div>
+      <div className="w-1/2 h-4 bg-gray-200 rounded-lg"></div>
+
+      {/* Input/Button Placeholders */}
+      <div className="w-full h-14 bg-gray-200 rounded-2xl mt-8"></div>
+      <div className="w-full h-14 bg-gray-200 rounded-2xl"></div>
+      <div className="w-full h-14 bg-gray-200 rounded-2xl"></div>
+    </div>
+  );
+
   if (fullscreen) {
     return (
-      <FullscreenWrapper>
-        <Spinner />
-      </FullscreenWrapper>
-    )
+      <div className="fixed inset-0 min-h-screen w-full flex flex-col items-center justify-center bg-white z-50 backdrop-blur-sm">
+        <SkeletonUI />
+      </div>
+    );
   }
+
   return (
-    <LoaderWrapper>
-      <Spinner />
-    </LoaderWrapper>
+    <div className="w-full flex justify-center items-center py-8">
+      <SkeletonUI />
+    </div>
   );
 };
 
 export default Loader;
-
