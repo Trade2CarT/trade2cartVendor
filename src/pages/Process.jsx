@@ -21,7 +21,6 @@ const Process = () => {
     const [billItems, setBillItems] = useState([]);
     const [billCalculated, setBillCalculated] = useState(false);
 
-    // Custom Modal State
     const [showCustomModal, setShowCustomModal] = useState(false);
     const [customName, setCustomName] = useState('');
     const [customRate, setCustomRate] = useState('');
@@ -76,27 +75,33 @@ const Process = () => {
         return () => unsubscribe();
     }, []);
 
-    // Add item from Grid
+    // --- HELPER TO DISPLAY RANGE CLEANLY ---
+    const getRateDisplay = (item) => {
+        const min = parseFloat(item.minRate || item.rate || 0);
+        const max = parseFloat(item.maxRate || item.rate || 0);
+        return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
+    };
+
     const handleAddItem = (item) => {
         const existingItem = billItems.find(billItem => billItem.id === item.id);
         if (existingItem) {
             toast.error(`${item.name} is already added. You can change weight below.`);
         } else {
-            const rateVal = parseFloat(item.rate) || 0;
+            // Auto-start at the minimum rate allowed
+            const minRateVal = parseFloat(item.minRate || item.rate) || 0;
             const newBillItem = {
                 ...item,
                 billItemId: `${item.id}-${Date.now()}`,
-                rateInput: item.rate.toString(),
-                rate: rateVal,
+                rateInput: minRateVal.toString(),
+                rate: minRateVal,
                 weightInput: "1",
                 weight: 1,
-                total: rateVal * 1,
+                total: minRateVal * 1,
             };
             setBillItems(prev => [...prev, newBillItem]);
         }
     };
 
-    // Add custom item
     const handleAddCustom = () => {
         if (!customName.trim() || !customRate.trim()) return toast.error("Please enter a name and price.");
         const rateVal = parseFloat(customRate) || 0;
@@ -117,7 +122,6 @@ const Process = () => {
         setCustomRate('');
     };
 
-    // Handle Manual Rate Edit
     const handleUpdateRate = (billItemId, newRateInput) => {
         setBillItems(prev => prev.map(item => {
             if (item.billItemId === billItemId) {
@@ -128,7 +132,6 @@ const Process = () => {
         }));
     };
 
-    // Handle Manual Weight Edit
     const handleUpdateWeight = (billItemId, newWeightInput) => {
         setBillItems(prev => prev.map(item => {
             if (item.billItemId === billItemId) {
@@ -144,6 +147,26 @@ const Process = () => {
     };
 
     const totalBill = useMemo(() => billItems.reduce((acc, item) => acc + (item.total || 0), 0), [billItems]);
+
+    // --- NEW: STRICT VALIDATION BEFORE CALCULATING ---
+    const handleCalculateBill = () => {
+        for (let item of billItems) {
+            if (item.id.startsWith('custom-')) continue; // Custom items have no limits
+
+            const min = parseFloat(item.minRate || item.rate || 0);
+            const max = parseFloat(item.maxRate || item.rate || Infinity);
+
+            if (item.rate < min || item.rate > max) {
+                toast.error(`Error: ${item.name} price must be between ₹${min} and ₹${max}.`);
+                return; // Blocks the vendor from proceeding
+            }
+            if (item.weight <= 0 || isNaN(item.weight)) {
+                toast.error(`Please enter a valid weight for ${item.name}.`);
+                return;
+            }
+        }
+        setBillCalculated(true);
+    };
 
     const handleSubmitBill = async () => {
         if (billItems.length === 0) return toast.error("Please add items to the bill.");
@@ -184,18 +207,14 @@ const Process = () => {
     return (
         <>
             <SEO title={`Process Order - ${assignmentId.slice(-6)}`} />
-            {/* FIXED: Increased bottom padding (pb-52) so content isn't hidden behind the stacked menus */}
             <div className="pb-52 bg-gray-50 min-h-screen">
 
-                {/* Header */}
                 <div className="bg-blue-600 text-white p-6 pt-8 rounded-b-3xl shadow-md mb-6">
                     <h1 className="text-2xl font-extrabold mb-1">Process Pickup</h1>
                     <p className="text-blue-100 font-medium text-sm">Order ID: #{assignmentId.slice(-6).toUpperCase()}</p>
                 </div>
 
                 <div className="max-w-2xl mx-auto px-4 space-y-6">
-
-                    {/* Customer Details */}
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                         <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-4">Customer Info</h2>
                         <div className="flex flex-col gap-3">
@@ -210,7 +229,6 @@ const Process = () => {
                         </div>
                     </div>
 
-                    {/* TAP GRID */}
                     {!billCalculated && (
                         <div>
                             <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Items</h2>
@@ -218,10 +236,10 @@ const Process = () => {
                                 {availableItems.map(item => (
                                     <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-full">
                                         <span className="font-extrabold text-sm text-gray-800 leading-tight mb-3 line-clamp-2">{item.name}</span>
-                                        <span className="mt-auto text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">₹{item.rate}/{item.unit}</span>
+                                        {/* Shows exact range (e.g. ₹30 - ₹40/kg) */}
+                                        <span className="mt-auto text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{getRateDisplay(item)}/{item.unit}</span>
                                     </div>
                                 ))}
-                                {/* Custom Item Button */}
                                 <div onClick={() => setShowCustomModal(true)} className="bg-blue-50 p-3 rounded-2xl border-2 border-dashed border-blue-400 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-blue-700 h-full">
                                     <FaPlus className="text-xl mb-2" />
                                     <span className="mt-auto font-extrabold text-sm">Custom</span>
@@ -230,7 +248,6 @@ const Process = () => {
                         </div>
                     )}
 
-                    {/* BILL ITEMS (Editable Cart) */}
                     {billItems.length > 0 && (
                         <div className="mt-6">
                             <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Current Bill</h2>
@@ -242,17 +259,18 @@ const Process = () => {
                                     <h4 className="font-extrabold text-lg text-gray-900 pr-8">{item.name}</h4>
 
                                     <div className="flex gap-2 mt-3 items-end">
-                                        {/* Editable Price */}
                                         <div className="flex-1 min-w-0">
                                             <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Rate (₹)</label>
                                             <input type="number" value={item.rateInput} disabled={billCalculated} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70 min-w-0" />
+                                            {/* Prompts the vendor with the allowed range underneath the input box */}
+                                            {!item.id.startsWith('custom-') && !billCalculated && (item.minRate !== item.maxRate) && (
+                                                <p className="text-[9px] text-gray-400 mt-1 text-center font-bold truncate">Limit: ₹{item.minRate || item.rate} - ₹{item.maxRate || item.rate}</p>
+                                            )}
                                         </div>
-                                        {/* Editable Weight */}
                                         <div className="flex-1 min-w-0">
                                             <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Qty/Wt</label>
                                             <input type="number" value={item.weightInput} disabled={billCalculated} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} className="w-full px-2 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70 min-w-0" />
                                         </div>
-                                        {/* Item Total */}
                                         <div className="flex-1 min-w-0 text-right pb-1">
                                             <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Total</label>
                                             <div className="font-extrabold text-lg text-gray-900 truncate">₹{item.total.toFixed(2)}</div>
@@ -264,7 +282,6 @@ const Process = () => {
                     )}
                 </div>
 
-                {/* FIXED Sticky Checkout Bar: Changed bottom-0 to bottom-16 on mobile so it floats right above your tab bar */}
                 {billItems.length > 0 && (
                     <div className="fixed bottom-16 md:bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] p-4 sm:p-6 z-30 pb-safe">
                         <div className="max-w-2xl mx-auto">
@@ -274,7 +291,7 @@ const Process = () => {
                             </div>
 
                             {!billCalculated ? (
-                                <button onClick={() => setBillCalculated(true)} className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform">
+                                <button onClick={handleCalculateBill} className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform">
                                     Calculate Bill
                                 </button>
                             ) : (
@@ -292,7 +309,6 @@ const Process = () => {
                 )}
             </div>
 
-            {/* CUSTOM ITEM MODAL */}
             {showCustomModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4 pb-10">
                     <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm relative animate-slide-up">
