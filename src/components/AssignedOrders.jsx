@@ -107,10 +107,20 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
             if (!userSnapshot.exists()) throw new Error("Customer data not found!");
 
             const userData = userSnapshot.val();
-            if (String(userData.otp) === String(enteredOtp)) {
+            // Using '==' to safely check Number vs String OTP formats
+            if (userData.otp == enteredOtp) {
                 toast.success("OTP Verified!");
                 setOtpModalOrder(null);
-                navigate(`/process/${otpModalOrder.id}`);
+
+                // ✅ THE FIX: Navigate to /process and PASS the assignment data in the state!
+                // We also pass bypassOtp: true so Process.jsx knows the OTP is already done.
+                navigate('/process', {
+                    state: {
+                        assignment: otpModalOrder,
+                        bypassOtp: true
+                    }
+                });
+
             } else {
                 toast.error("Invalid OTP.");
             }
@@ -147,7 +157,9 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                             <FaPhoneAlt /> Call {order.mobile}
                         </a>
 
-                        <SwipeButton onSwipeSuccess={() => setOtpModalOrder(order)} />
+                        <div className="mt-2 w-full">
+                            <SwipeButton onSwipeSuccess={() => setOtpModalOrder(order)} />
+                        </div>
                     </div>
                 ))
             )}
