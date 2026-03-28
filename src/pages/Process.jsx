@@ -15,8 +15,7 @@ import {
     FaLock,
     FaPlus,
     FaTrash,
-    FaTimes,
-    FaEdit
+    FaTimes
 } from "react-icons/fa";
 
 const Process = () => {
@@ -36,16 +35,19 @@ const Process = () => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     const [masterItems, setMasterItems] = useState([]);
-    const [billItems, setBillItems] = useState([]);
 
-    // ✅ NEW UX: Smart Add/Edit Modal State
-    const [activeItem, setActiveItem] = useState(null);
+    // ✅ FIX 3: Initialize Bill Items from SessionStorage so the "Back" button works!
+    const targetAssignmentId = assignment?.id || assignment?.assignmentID || assignment?.orderId;
+    const targetUserId = assignment?.userId || assignment?.userID || assignment?.customerId;
+
+    const [billItems, setBillItems] = useState(() => {
+        const savedCart = sessionStorage.getItem(`cart_${targetAssignmentId}`);
+        return savedCart ? JSON.parse(savedCart) : [];
+    });
+
     const [showCustomModal, setShowCustomModal] = useState(false);
     const [customName, setCustomName] = useState('');
     const [customRate, setCustomRate] = useState('');
-
-    const targetUserId = assignment?.userId || assignment?.userID || assignment?.customerId;
-    const targetAssignmentId = assignment?.id || assignment?.assignmentID || assignment?.orderId;
 
     useEffect(() => {
         if (!assignment || !targetUserId) {
@@ -57,6 +59,13 @@ const Process = () => {
         fetchCustomerData();
         fetchMasterItems();
     }, []);
+
+    // ✅ FIX 3 (continued): Save to SessionStorage every time the bill changes
+    useEffect(() => {
+        if (targetAssignmentId) {
+            sessionStorage.setItem(`cart_${targetAssignmentId}`, JSON.stringify(billItems));
+        }
+    }, [billItems, targetAssignmentId]);
 
     const fetchVendorProfile = async () => {
         try {
@@ -127,59 +136,47 @@ const Process = () => {
         return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
     };
 
-    // ✅ THE NEW UX: Opens the Modal instead of instantly adding
+    // ✅ FIX 2: Tapping an item drops it into the list so they can instantly type the weight
     const handleItemClick = (item) => {
         if (navigator.vibrate) navigator.vibrate(20);
 
-        const existingItem = billItems.find(b => b.id === item.id);
+        const isAlreadyAdded = billItems.some(b => b.id === item.id);
 
-        if (existingItem) {
-            // Open in Edit Mode
-            setActiveItem({ ...existingItem, isEditing: true });
+        if (isAlreadyAdded) {
+            setBillItems(prev => prev.filter(b => b.id !== item.id)); // Remove it
         } else {
-            // Open in Add Mode
             const defaultRate = parseFloat(item.minRate || item.rate) || 0;
-            setActiveItem({
+            const newBillItem = {
                 ...item,
+                billItemId: `${item.id}-${Date.now()}`,
                 rateInput: defaultRate.toString(),
-                weightInput: "", // Blank so they MUST type a weight
-                isEditing: false
-            });
+                rate: defaultRate,
+                weightInput: "", // Blank so they MUST type it
+                weight: 0,
+                total: 0
+            };
+            setBillItems(prev => [...prev, newBillItem]);
         }
     };
 
-    // ✅ THE NEW UX: Saves the data from the popup to the bill
-    const handleSaveActiveItem = () => {
-        const parsedRate = parseFloat(activeItem.rateInput) || 0;
-        const parsedWeight = parseFloat(activeItem.weightInput) || 0;
+    const handleUpdateRate = (billItemId, newRateInput) => {
+        setBillItems(prev => prev.map(item => {
+            if (item.billItemId === billItemId) {
+                const parsedRate = parseFloat(newRateInput) || 0;
+                return { ...item, rateInput: newRateInput, rate: parsedRate, total: parsedRate * item.weight };
+            }
+            return item;
+        }));
+    };
 
-        const min = parseFloat(activeItem.minRate || activeItem.rate || 0);
-        const max = parseFloat(activeItem.maxRate || activeItem.rate || Infinity);
-
-        if (parsedRate < min || parsedRate > max) {
-            return toast.error(`Price must be between ₹${min} and ₹${max}.`);
-        }
-        if (parsedWeight <= 0 || isNaN(parsedWeight)) {
-            return toast.error("Please enter a valid weight.");
-        }
-
-        const updatedItem = {
-            ...activeItem,
-            rate: parsedRate,
-            weight: parsedWeight,
-            total: parsedRate * parsedWeight,
-            billItemId: activeItem.billItemId || `${activeItem.id}-${Date.now()}`
-        };
-
-        if (activeItem.isEditing) {
-            setBillItems(prev => prev.map(b => b.id === updatedItem.id ? updatedItem : b));
-            toast.success("Item updated!");
-        } else {
-            setBillItems(prev => [...prev, updatedItem]);
-            toast.success("Item added to bill!");
-        }
-
-        setActiveItem(null); // Close modal
+    const handleUpdateWeight = (billItemId, newWeightInput) => {
+        setBillItems(prev => prev.map(item => {
+            if (item.billItemId === billItemId) {
+                const parsedWeight = parseFloat(newWeightInput) || 0;
+                return { ...item, weightInput: newWeightInput, weight: parsedWeight, total: item.rate * parsedWeight };
+            }
+            return item;
+        }));
     };
 
     const handleRemoveItem = (billItemId) => {
@@ -208,6 +205,19 @@ const Process = () => {
 
     const generateBill = () => {
         if (billItems.length === 0) return toast.error("Please add at least one item.");
+
+        for (let item of billItems) {
+            if (item.id.startsWith('custom-')) continue;
+            const min = parseFloat(item.minRate || item.rate || 0);
+            const max = parseFloat(item.maxRate || item.rate || Infinity);
+
+            if (item.rate < min || item.rate > max) {
+                return toast.error(`Error: ${item.name} price must be between ₹${min} and ₹${max}.`);
+            }
+            if (item.weight <= 0 || isNaN(item.weight)) {
+                return toast.error(`Please enter a valid weight for ${item.name}.`);
+            }
+        }
 
         const weightsObj = {};
         const pricesObj = {};
@@ -347,31 +357,34 @@ const Process = () => {
                             </div>
                         </div>
 
-                        {/* ✅ NEW UX: CLEAN BILL LIST */}
+                        {/* ✅ FIX 2: Restored Inline Editing Inputs */}
                         {billItems.length > 0 && (
                             <div className="mt-6">
                                 <h2 className="text-[14px] font-black uppercase tracking-widest mb-3 text-gray-800 flex items-center gap-2"><FaWeightHanging className="text-blue-500" /> Current Bill</h2>
-                                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                                    {billItems.map((item, index) => (
-                                        <div key={item.billItemId} className={`p-4 flex justify-between items-center ${index !== billItems.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                                            <div>
-                                                <h4 className="font-black text-gray-900 text-lg capitalize">{item.name}</h4>
-                                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1">
-                                                    {item.weight} {item.unit || 'kg'} × ₹{item.rate}
-                                                </p>
-                                            </div>
-                                            <div className="text-right flex items-center gap-4">
-                                                <div className="font-black text-xl text-green-600">₹{item.total.toFixed(2)}</div>
+                                {billItems.map(item => (
+                                    <div key={item.billItemId} className="bg-white p-4 rounded-2xl border-2 border-gray-100 mb-3 shadow-sm relative overflow-hidden">
+                                        <button onClick={() => handleRemoveItem(item.billItemId)} className="absolute top-0 right-0 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-colors p-3 rounded-bl-2xl"><FaTrash size={14} /></button>
+                                        <h4 className="font-extrabold text-lg text-gray-900 pr-10">{item.name}</h4>
 
-                                                {/* Action Buttons */}
-                                                <div className="flex flex-col gap-2 border-l border-gray-200 pl-4">
-                                                    <button onClick={() => handleItemClick(item)} className="text-blue-500 hover:text-blue-700"><FaEdit size={16} /></button>
-                                                    <button onClick={() => handleRemoveItem(item.billItemId)} className="text-red-400 hover:text-red-600"><FaTrash size={16} /></button>
-                                                </div>
+                                        <div className="flex gap-3 mt-4 items-end">
+                                            <div className="flex-1">
+                                                <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Rate (₹)</label>
+                                                <input type="number" value={item.rateInput} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 outline-none text-center" />
+                                                {!item.id.startsWith('custom-') && (item.minRate !== item.maxRate) && (
+                                                    <p className="text-[9px] text-gray-400 mt-1 text-center font-bold">Limit: ₹{item.minRate || item.rate} - ₹{item.maxRate || item.rate}</p>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Wt ({item.unit || 'kg'})</label>
+                                                <input type="number" autoFocus={item.weightInput === ""} value={item.weightInput} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} placeholder="0.0" className="w-full px-2 py-3 bg-blue-50 border border-blue-200 rounded-xl font-bold text-blue-900 focus:border-blue-500 outline-none text-center" />
+                                            </div>
+                                            <div className="flex-1 text-right pb-2">
+                                                <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Total</label>
+                                                <div className="font-black text-xl text-green-600">₹{item.total.toFixed(2)}</div>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
@@ -381,47 +394,6 @@ const Process = () => {
                     </div>
                 )}
             </main>
-
-            {/* ✅ NEW UX: SMART ADD/EDIT MODAL */}
-            {activeItem && !activeItem.id.startsWith('custom-') && (
-                <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4 pb-10">
-                    <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm relative animate-slide-up">
-                        <button onClick={() => setActiveItem(null)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 bg-gray-100 rounded-full"><FaTimes /></button>
-
-                        <h3 className="text-2xl font-black text-gray-900 mb-1">{activeItem.isEditing ? 'Edit Item' : 'Add Item'}</h3>
-                        <p className="text-gray-500 font-bold mb-6 capitalize">{activeItem.name}</p>
-
-                        <div className="space-y-4 mb-8">
-                            <div>
-                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest flex justify-between">
-                                    <span>Weight ({activeItem.unit || 'kg'})</span>
-                                </label>
-                                <input type="number" autoFocus value={activeItem.weightInput} onChange={(e) => setActiveItem({ ...activeItem, weightInput: e.target.value })} placeholder="0.0" className="w-full mt-1 p-4 bg-gray-50 border-2 border-blue-200 rounded-xl font-black text-blue-900 text-xl focus:border-blue-500 outline-none text-center" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest flex justify-between">
-                                    <span>Rate (₹)</span>
-                                    {activeItem.minRate !== activeItem.maxRate && (
-                                        <span className="text-blue-500">Limit: ₹{activeItem.minRate} - ₹{activeItem.maxRate}</span>
-                                    )}
-                                </label>
-                                <input type="number" value={activeItem.rateInput} onChange={(e) => setActiveItem({ ...activeItem, rateInput: e.target.value })} className="w-full mt-1 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 outline-none text-center" />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            {activeItem.isEditing && (
-                                <button onClick={() => { handleRemoveItem(activeItem.billItemId); setActiveItem(null); }} className="py-4 px-6 bg-red-50 text-red-600 font-black text-lg rounded-xl active:bg-red-100 transition-colors">
-                                    <FaTrash />
-                                </button>
-                            )}
-                            <button onClick={handleSaveActiveItem} className="flex-1 py-4 bg-blue-600 text-white font-black text-xl rounded-xl shadow-lg active:scale-95 transition-transform">
-                                {activeItem.isEditing ? 'Update Bill' : 'Save to Bill'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* CUSTOM ITEM MODAL */}
             {showCustomModal && (
@@ -445,7 +417,6 @@ const Process = () => {
                     </div>
                 </div>
             )}
-
         </div>
     );
 };

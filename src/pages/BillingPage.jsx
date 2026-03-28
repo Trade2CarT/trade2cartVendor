@@ -17,13 +17,11 @@ const BillingPage = () => {
     const navigate = useNavigate();
     const db = getDatabase();
 
-    // Catch the hidden data passed from Process.jsx
     const { assignment, selectedItems, weights, prices } = location.state || {};
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [totalAmount, setTotalAmount] = useState(0);
 
-    // Safety Check: If data is missing (e.g. user refreshed the page), send them back
     useEffect(() => {
         if (!assignment || !selectedItems || selectedItems.length === 0) {
             toast.error("Billing data lost. Please select the order again.");
@@ -31,7 +29,6 @@ const BillingPage = () => {
         }
     }, [assignment, selectedItems, navigate]);
 
-    // Calculate the grand total
     useEffect(() => {
         if (selectedItems && weights && prices) {
             let total = 0;
@@ -49,19 +46,21 @@ const BillingPage = () => {
         setIsProcessing(true);
         const targetUserId = assignment?.userId || assignment?.userID || assignment?.customerId;
         const targetAssignmentId = assignmentId || assignment?.id || assignment?.assignmentID;
+        const vendorId = assignment.vendorId || assignment.vendorID || "ADMIN_PROCESSED";
 
         try {
-            const updates = {};
             const timestamp = new Date().toISOString();
+            const promises = [];
 
-            // 1. Mark Waste Entries as Processed
+            // ✅ FIX 1: Update Waste Entries safely! 
+            // We push them one by one, adding the required userID and mobile fields to satisfy your security rules!
             selectedItems.forEach((item) => {
                 const finalWeight = weights[item.id] || 0;
                 const itemName = item.name || item.text || "unknown";
                 const itemRate = prices[itemName.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0;
                 const total = finalWeight * itemRate;
 
-                updates[`wasteEntries/${item.id}`] = {
+                promises.push(update(ref(db, `wasteEntries/${item.id}`), {
                     ...item,
                     status: "Processed",
                     finalWeight: finalWeight,
@@ -69,25 +68,31 @@ const BillingPage = () => {
                     finalTotal: total,
                     processedAt: timestamp,
                     assignmentID: targetAssignmentId,
-                };
+                    userID: targetUserId, // Required by rules
+                    mobile: assignment.userMobile || assignment.mobile || "", // Required by rules
+                }));
             });
 
-            // 2. Update Assignment Status
-            updates[`assignments/${targetAssignmentId}/status`] = "Completed";
-            updates[`assignments/${targetAssignmentId}/completedAt`] = timestamp;
-            updates[`assignments/${targetAssignmentId}/totalAmount`] = totalAmount;
+            // ✅ FIX 1 (cont): Update Assignment
+            promises.push(update(ref(db, `assignments/${targetAssignmentId}`), {
+                status: "Completed",
+                completedAt: timestamp,
+                totalAmount: totalAmount
+            }));
 
-            // 3. Reset Customer's Live Status so they can book again
+            // ✅ FIX 1 (cont): Update User Profile
+            promises.push(update(ref(db, `users/${targetUserId}`), {
+                Status: "Active",
+                otp: null,
+                currentAssignmentId: null
+            }));
+
+            // ✅ FIX 1 (cont): Generate the Digital Bill
             const billId = `BILL_${Date.now()}`;
-            updates[`users/${targetUserId}/Status`] = "Active";
-            updates[`users/${targetUserId}/otp`] = null;
-            updates[`users/${targetUserId}/currentAssignmentId`] = null;
-
-            // 4. Create the Final Digital Bill Record
-            updates[`bills/${billId}`] = {
+            promises.push(update(ref(db, `bills/${billId}`), {
                 assignmentID: targetAssignmentId,
                 userID: targetUserId,
-                vendorID: assignment.vendorId || assignment.vendorID || "ADMIN_PROCESSED",
+                vendorID: vendorId,
                 totalBill: totalAmount,
                 createdAt: timestamp,
                 billItems: selectedItems.map((item) => {
@@ -100,17 +105,20 @@ const BillingPage = () => {
                         total: weights[item.id] * itemRate,
                         unit: item.unit || "kg"
                     };
-                }),
-            };
+                })
+            }));
 
-            await update(ref(db), updates);
+            // Execute all updates simultaneously
+            await Promise.all(promises);
+
+            // ✅ Clear the session storage so the cart is empty for the next order
+            sessionStorage.removeItem(`cart_${targetAssignmentId}`);
 
             toast.success("Trade Completed Successfully! 🎉");
-            // Go back to the dashboard after a short delay
             setTimeout(() => navigate("/dashboard", { replace: true }), 1500);
 
         } catch (error) {
-            toast.error("Failed to complete trade.");
+            toast.error("Failed to complete trade. Check connection.");
             setIsProcessing(false);
         }
     };
@@ -121,7 +129,6 @@ const BillingPage = () => {
         <div className="min-h-screen bg-gray-50 font-sans pb-24">
             <Toaster position="top-center" />
 
-            {/* HEADER */}
             <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white pt-6 pb-8 px-5 rounded-b-[40px] shadow-lg relative z-20">
                 <div className="flex items-center gap-4 relative z-10">
                     <button onClick={() => navigate(-1)} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition backdrop-blur-sm">
@@ -136,7 +143,6 @@ const BillingPage = () => {
 
             <main className="px-4 -mt-4 relative z-30 max-w-2xl mx-auto space-y-4">
 
-                {/* CUSTOMER SUMMARY */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
                     <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
                         <FaUser size={20} />
@@ -147,7 +153,6 @@ const BillingPage = () => {
                     </div>
                 </div>
 
-                {/* INVOICE CARD */}
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="p-5 border-b border-gray-100 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center"><FaBoxOpen size={12} /></div>
@@ -175,7 +180,6 @@ const BillingPage = () => {
                         })}
                     </div>
 
-                    {/* GRAND TOTAL */}
                     <div className="bg-green-50 p-6 flex justify-between items-center border-t border-green-100">
                         <div>
                             <p className="text-xs font-bold text-green-700 uppercase tracking-widest">Amount to Pay</p>
@@ -188,7 +192,6 @@ const BillingPage = () => {
                     </div>
                 </div>
 
-                {/* SUBMIT BUTTON */}
                 <button
                     onClick={handleFinalSubmit}
                     disabled={isProcessing}
