@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getDatabase, ref, update, get } from "firebase/database";
 import { toast, Toaster } from "react-hot-toast";
-import TradePriceModal from "../components/TradePriceModal";
 import {
     FaArrowLeft,
     FaCheckCircle,
@@ -22,21 +21,19 @@ const Process = () => {
     const navigate = useNavigate();
     const db = getDatabase();
 
-    // ✅ FIX 1: Indestructible State Extraction
-    // This catches the order data whether it was passed as { assignment: data } OR just directly as { data }
+    // ✅ Indestructible State Extraction
     const initialAssignment = state?.assignment || (state?.id ? state : null);
 
     const [assignment, setAssignment] = useState(initialAssignment);
     const [wasteEntries, setWasteEntries] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Instantly unlocks the screen if the Admin passes bypassOtp: true
+    // ✅ Instantly unlocks the screen if Admin or Dashboard passes bypassOtp: true
     const [isOtpVerified, setIsOtpVerified] = useState(() => state?.otpVerified || state?.bypassOtp || false);
 
     const [otpInput, setOtpInput] = useState("");
     const [selectedItems, setSelectedItems] = useState([]);
     const [weights, setWeights] = useState({});
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [prices, setPrices] = useState({});
     const [customerGps, setCustomerGps] = useState(null);
@@ -153,6 +150,7 @@ const Process = () => {
         setWeights({ ...weights, [id]: value });
     };
 
+    // ✅ UPDATED: Now navigates directly to the Billing Page with all data!
     const generateBill = () => {
         if (selectedItems.length === 0) {
             return toast.error("Please select at least one item to generate a bill.");
@@ -168,73 +166,17 @@ const Process = () => {
         if (!isWeightValid) {
             return toast.error("Please enter a valid weight for all selected items.");
         }
-        setIsModalOpen(true);
-    };
 
-    const handleFinalSubmit = async () => {
-        setIsProcessing(true);
-        try {
-            let totalBillAmount = 0;
-            const updates = {};
-            const timestamp = new Date().toISOString();
-
-            selectedItems.forEach((item) => {
-                const finalWeight = weights[item.id];
-                // ✅ FIX 2: Safe string conversion prevents undefined `.toLowerCase()` crashes
-                const itemName = item.name || item.text || "unknown";
-                const itemRate = prices[itemName.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0;
-                const total = finalWeight * itemRate;
-                totalBillAmount += total;
-
-                updates[`wasteEntries/${item.id}`] = {
-                    ...item,
-                    status: "Processed",
-                    finalWeight: finalWeight,
-                    finalRate: itemRate,
-                    finalTotal: total,
-                    processedAt: timestamp,
-                    assignmentID: targetAssignmentId,
-                };
-            });
-
-            updates[`assignments/${targetAssignmentId}/status`] = "Completed";
-            updates[`assignments/${targetAssignmentId}/completedAt`] = timestamp;
-            updates[`assignments/${targetAssignmentId}/totalAmount`] = totalBillAmount;
-
-            const billId = `BILL_${Date.now()}`;
-            updates[`users/${targetUserId}/Status`] = "Active";
-            updates[`users/${targetUserId}/otp`] = null;
-            updates[`users/${targetUserId}/currentAssignmentId`] = null;
-
-            updates[`bills/${billId}`] = {
-                assignmentID: targetAssignmentId,
-                userID: targetUserId,
-                vendorID: assignment.vendorId || assignment.vendorID || "ADMIN_PROCESSED",
-                totalBill: totalBillAmount,
-                createdAt: timestamp,
-                billItems: selectedItems.map((item) => {
-                    const itemName = item.name || item.text || "unknown";
-                    const itemRate = prices[itemName.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0;
-                    return {
-                        name: itemName,
-                        weight: weights[item.id],
-                        rate: itemRate,
-                        total: weights[item.id] * itemRate,
-                        unit: item.unit || "kg"
-                    };
-                }),
-            };
-
-            await update(ref(db), updates);
-
-            setIsModalOpen(false);
-            toast.success("Trade Completed Successfully!");
-            setTimeout(() => navigate(-1), 1500);
-
-        } catch (error) {
-            toast.error("Failed to complete trade.");
-            setIsProcessing(false);
-        }
+        // Navigate to your dedicated billing page (e.g., /billing/:id)
+        // Make sure the route name here matches what you have in App.jsx!
+        navigate(`/billing/${targetAssignmentId}`, {
+            state: {
+                assignment: assignment,
+                selectedItems: selectedItems,
+                weights: weights,
+                prices: prices
+            }
+        });
     };
 
     if (loading || !assignment) {
@@ -264,6 +206,7 @@ const Process = () => {
 
             <main className="px-4 -mt-4 relative z-30 max-w-2xl mx-auto space-y-4">
 
+                {/* CUSTOMER CARD */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-start mb-4">
                         <h2 className="text-[14px] font-black uppercase tracking-widest text-gray-800 flex items-center gap-3">
@@ -284,6 +227,7 @@ const Process = () => {
                     </div>
                 </div>
 
+                {/* LOCATION CARD */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
@@ -296,6 +240,7 @@ const Process = () => {
                         {assignment.userAddress || "Address not provided"}
                     </p>
 
+                    {/* ✅ Official Google Maps App Universal Link */}
                     {customerGps ? (
                         <a
                             href={`https://www.google.com/maps/dir/?api=1&destination=${customerGps.lat},${customerGps.lng}`}
@@ -313,6 +258,7 @@ const Process = () => {
                     )}
                 </div>
 
+                {/* OTP VERIFICATION */}
                 {!isOtpVerified ? (
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
                         <div className="w-16 h-16 bg-gray-900 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -341,6 +287,7 @@ const Process = () => {
                     </div>
                 ) : (
 
+                    /* WEIGHING ITEMS */
                     <div className="space-y-4 animate-fade-in-up">
                         <div className="bg-green-50 p-4 rounded-3xl border border-green-200 flex items-center gap-3 shadow-sm">
                             <FaCheckCircle className="text-green-600 text-2xl flex-shrink-0" />
@@ -405,22 +352,11 @@ const Process = () => {
                             disabled={selectedItems.length === 0}
                             className="w-full py-4 mt-6 bg-green-600 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:shadow-none"
                         >
-                            <FaFileInvoiceDollar /> Generate Final Bill
+                            <FaFileInvoiceDollar /> Continue to Billing
                         </button>
                     </div>
                 )}
             </main>
-
-            <TradePriceModal
-                isOpen={isModalOpen}
-                onClose={() => !isProcessing && setIsModalOpen(false)}
-                selectedItems={selectedItems}
-                weights={weights}
-                prices={prices}
-                onConfirm={handleFinalSubmit}
-                isProcessing={isProcessing}
-            />
-
         </div>
     );
 };
