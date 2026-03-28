@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-// Added "auth" to get the logged-in vendor's location
 import { getDatabase, ref, get, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { auth } from "../firebase";
 import { toast, Toaster } from "react-hot-toast";
@@ -27,7 +26,9 @@ const Process = () => {
     const initialAssignment = state?.assignment || (state?.id ? state : null);
 
     const [assignment, setAssignment] = useState(initialAssignment);
-    const [vendor, setVendor] = useState(null); // ✅ NEW: Store vendor profile
+    const [vendor, setVendor] = useState(null);
+    const [customerProfile, setCustomerProfile] = useState(null); // ✅ NEW: Store live customer data
+
     const [loading, setLoading] = useState(true);
     const [isOtpVerified, setIsOtpVerified] = useState(() => state?.otpVerified || state?.bypassOtp || false);
     const [otpInput, setOtpInput] = useState("");
@@ -50,10 +51,10 @@ const Process = () => {
             return;
         }
         fetchVendorProfile();
+        fetchCustomerData(); // ✅ Fetch the missing name/address here!
         fetchMasterItems();
     }, []);
 
-    // ✅ NEW: Fetch Vendor's location to filter the items
     const fetchVendorProfile = async () => {
         try {
             const user = auth.currentUser;
@@ -64,6 +65,19 @@ const Process = () => {
             }
         } catch (error) {
             console.error("Could not fetch vendor profile");
+        }
+    };
+
+    // ✅ FIX 1: Grab the live customer data so it isn't missing on the Billing Page
+    const fetchCustomerData = async () => {
+        try {
+            const userRef = ref(db, `users/${targetUserId}`);
+            const snap = await get(userRef);
+            if (snap.exists()) {
+                setCustomerProfile(snap.val());
+            }
+        } catch (error) {
+            console.error("Could not fetch customer data");
         }
     };
 
@@ -111,12 +125,17 @@ const Process = () => {
         return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
     };
 
+    // ✅ FIX 2: Better UX. Tap once to add, tap again to remove (No more errors!)
     const handleAddItem = (item) => {
         if (navigator.vibrate) navigator.vibrate(20);
-        const existingItem = billItems.find(billItem => billItem.id === item.id);
-        if (existingItem) {
-            toast.error(`${item.name} is already added. Change weight below.`);
+
+        const isAlreadyAdded = billItems.some(billItem => billItem.id === item.id);
+
+        if (isAlreadyAdded) {
+            // Remove it if tapped again
+            setBillItems(prev => prev.filter(b => b.id !== item.id));
         } else {
+            // Add it
             const minRateVal = parseFloat(item.minRate || item.rate) || 0;
             const newBillItem = {
                 ...item,
@@ -198,8 +217,21 @@ const Process = () => {
             pricesObj[item.name.toLowerCase()] = item.rate;
         });
 
+        // Merge the verified customer data into the assignment so the BillingPage has it!
+        const enrichedAssignment = {
+            ...assignment,
+            userName: customerProfile?.name || assignment.userName || "Unknown Customer",
+            userMobile: customerProfile?.phone || assignment.userMobile || "Unknown Phone",
+            userAddress: customerProfile?.address || assignment.userAddress || "Address not provided"
+        };
+
         navigate(`/billing/${targetAssignmentId}`, {
-            state: { assignment, selectedItems: billItems, weights: weightsObj, prices: pricesObj }
+            state: {
+                assignment: enrichedAssignment,
+                selectedItems: billItems,
+                weights: weightsObj,
+                prices: pricesObj
+            }
         });
     };
 
@@ -211,10 +243,14 @@ const Process = () => {
         );
     }
 
-    // ✅ THE FILTER FIX: Only shows items matching the vendor's location
     const availableItems = vendor?.location
         ? masterItems.filter(item => item.location?.toLowerCase() === vendor.location?.toLowerCase())
         : masterItems;
+
+    // Derive the display names safely
+    const displayUserName = customerProfile?.name || assignment.userName || "Customer";
+    const displayUserPhone = customerProfile?.phone || assignment.userMobile || "N/A";
+    const displayUserAddress = customerProfile?.address || assignment.userAddress || "Address not provided";
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pb-24 relative">
@@ -243,22 +279,22 @@ const Process = () => {
                         </h2>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        <p className="text-xl font-black text-gray-900 mb-1">{assignment.userName}</p>
+                        <p className="text-xl font-black text-gray-900 mb-1">{displayUserName}</p>
                         <div className="flex items-center gap-4 text-gray-600 font-medium">
-                            <span className="flex items-center gap-1.5"><FaPhoneAlt size={12} /> {assignment.userMobile}</span>
-                            <span className="flex items-center gap-1.5"><FaCalendarAlt size={12} /> {new Date(assignment.assignedAt).toLocaleDateString()}</span>
+                            <span className="flex items-center gap-1.5"><FaPhoneAlt size={12} /> {displayUserPhone}</span>
+                            <span className="flex items-center gap-1.5"><FaCalendarAlt size={12} /> {new Date(assignment.assignedAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* ✅ CLEANED ADDRESS CARD (No Map Button Here) */}
+                {/* CLEANED ADDRESS CARD (No Map Button Here anymore) */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center"><FaMapMarkerAlt size={12} /></div>
                         Pickup Location
                     </h2>
                     <p className="text-gray-700 font-bold leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                        {assignment.userAddress || "Address not provided"}
+                        {displayUserAddress}
                     </p>
                 </div>
 
@@ -287,16 +323,27 @@ const Process = () => {
                             </div>
                         </div>
 
-                        {/* VENDOR ADD ITEM GRID */}
+                        {/* ✅ UPGRADED UX: TOGGLE ITEM GRID */}
                         <div>
-                            <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Scrap Items</h2>
+                            <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add/Remove Items</h2>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {availableItems.length > 0 ? availableItems.map(item => (
-                                    <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-24">
-                                        <span className="font-extrabold text-sm text-gray-800 leading-tight mb-2 line-clamp-2">{item.name}</span>
-                                        <span className="mt-auto text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{getRateDisplay(item)}/{item.unit || 'kg'}</span>
-                                    </div>
-                                )) : (
+                                {availableItems.length > 0 ? availableItems.map(item => {
+                                    const isSelected = billItems.some(b => b.id === item.id);
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => handleAddItem(item)}
+                                            className={`p-3 rounded-2xl border-2 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-all h-24 relative 
+                                ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-white hover:border-blue-300'}`}
+                                        >
+                                            {isSelected && <FaCheckCircle className="absolute top-2 right-2 text-blue-500" />}
+                                            <span className="font-extrabold text-sm text-gray-800 leading-tight mb-2 line-clamp-2">{item.name}</span>
+                                            <span className={`mt-auto text-[10px] font-bold px-2 py-1 rounded-md ${isSelected ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                                                {getRateDisplay(item)}/{item.unit || 'kg'}
+                                            </span>
+                                        </div>
+                                    );
+                                }) : (
                                     <div className="col-span-2 sm:col-span-3 text-center p-4 bg-gray-100 rounded-2xl border border-gray-200 text-gray-500 font-bold text-sm">
                                         No predefined items found for your location.
                                     </div>
