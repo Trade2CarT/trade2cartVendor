@@ -156,12 +156,13 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                                 </a>
 
                                 {/* ✅ MOVED GOOGLE MAPS BUTTON HERE */}
+                                {/* ✅ NEW OFFICIAL GOOGLE MAPS LINK */}
                                 {userProfile?.lastLat && userProfile?.lastLng && (
                                     <a
-                                        href={`https://www.google.com/maps/dir/?api=1&destination=$${userProfile.lastLat},${userProfile.lastLng}`}
+                                        href={`https://www.google.com/maps/dir/?api=1&destination=${userProfile.lastLat},${userProfile.lastLng}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 font-bold rounded-lg transition-colors hover:bg-green-100"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 font-bold rounded-lg transition-colors hover:bg-green-100 shadow-sm"
                                     >
                                         <FaLocationArrow /> Get Directions
                                     </a>
