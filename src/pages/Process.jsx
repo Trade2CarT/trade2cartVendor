@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getDatabase, ref, get, onValue } from "firebase/database";
+// ✅ IMPORTED NEW QUERY TOOLS HERE:
+import { getDatabase, ref, get, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { toast, Toaster } from "react-hot-toast";
 import {
     FaArrowLeft,
@@ -33,9 +34,10 @@ const Process = () => {
     const [customerGps, setCustomerGps] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // --- NEW: Vendor Building the Bill Locally ---
+    // Vendor Building the Bill Locally
     const [masterItems, setMasterItems] = useState([]);
     const [billItems, setBillItems] = useState([]);
+    const [wasteEntries, setWasteEntries] = useState([]);
 
     // Custom Item Modal
     const [showCustomModal, setShowCustomModal] = useState(false);
@@ -52,6 +54,7 @@ const Process = () => {
             return;
         }
         fetchCustomerData();
+        fetchWasteEntries();
         fetchMasterItems();
     }, []);
 
@@ -70,7 +73,35 @@ const Process = () => {
         }
     };
 
-    // ✅ Fetching the Master Price List instead of the User's cart!
+    // ✅ THE SECURE QUERY FIX: Only downloads this specific user's cart to pass Firebase Security Rules
+    const fetchWasteEntries = async () => {
+        setLoading(true);
+        try {
+            const entriesRef = query(
+                ref(db, "wasteEntries"),
+                orderByChild("userID"),
+                equalTo(targetUserId)
+            );
+
+            const snapshot = await get(entriesRef);
+
+            if (snapshot.exists()) {
+                const allEntries = snapshot.val();
+                const userEntries = Object.keys(allEntries)
+                    .map((key) => ({ id: key, ...allEntries[key] }))
+                    .filter(
+                        (entry) => (!entry.assignmentID || entry.assignmentID === targetAssignmentId)
+                    );
+                setWasteEntries(userEntries);
+            }
+        } catch (error) {
+            toast.error("Failed to load user cart data.");
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const fetchMasterItems = () => {
         setLoading(true);
         const itemsRef = ref(db, 'items');
@@ -210,7 +241,7 @@ const Process = () => {
         navigate(`/billing/${targetAssignmentId}`, {
             state: {
                 assignment: assignment,
-                selectedItems: billItems, // Passing the built list
+                selectedItems: billItems,
                 weights: weightsObj,
                 prices: pricesObj
             }
@@ -225,9 +256,6 @@ const Process = () => {
             </div>
         );
     }
-
-    // Filter items if you use location-based pricing, else show all
-    const availableItems = masterItems;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pb-24 relative">
@@ -314,11 +342,11 @@ const Process = () => {
                             </div>
                         </div>
 
-                        {/* ✅ VENDOR ADD ITEM GRID */}
+                        {/* VENDOR ADD ITEM GRID */}
                         <div>
                             <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Scrap Items</h2>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {availableItems.map(item => (
+                                {masterItems.map(item => (
                                     <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-24">
                                         <span className="font-extrabold text-sm text-gray-800 leading-tight mb-2 line-clamp-2">{item.name}</span>
                                         <span className="mt-auto text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{getRateDisplay(item)}/{item.unit || 'kg'}</span>
@@ -331,7 +359,7 @@ const Process = () => {
                             </div>
                         </div>
 
-                        {/* ✅ BILL ITEMS LIST */}
+                        {/* BILL ITEMS LIST */}
                         {billItems.length > 0 && (
                             <div className="mt-6">
                                 <h2 className="text-[14px] font-black uppercase tracking-widest mb-3 text-gray-800 flex items-center gap-2"><FaWeightHanging className="text-blue-500" /> Current Bill</h2>
