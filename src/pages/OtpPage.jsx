@@ -48,9 +48,22 @@ const OtpPage = () => {
             const userCredential = await confirmationResult.confirm(enteredOtp);
             const vendorRef = ref(db, `vendors/${userCredential.user.uid}`);
             const snapshot = await get(vendorRef);
-            if (snapshot.exists()) navigate('/dashboard');
-            else navigate('/register');
-        } catch {
+
+            if (snapshot.exists()) {
+                const vendorData = snapshot.val();
+                // If the vendor is approved, send them to dashboard to see active assignments
+                if (vendorData.status === "approved") {
+                    toast.success('Welcome back!');
+                    navigate('/dashboard');
+                } else {
+                    navigate('/pending');
+                }
+            } else {
+                toast.success('Please complete your registration.');
+                navigate('/register');
+            }
+        } catch (error) {
+            console.error("Verification error:", error);
             toast.error('Incorrect OTP. Try again.');
         } finally {
             setLoading(false);
@@ -81,7 +94,7 @@ const OtpPage = () => {
                                 ref={el => inputsRef.current[index] = el}
                                 type="tel"
                                 inputMode="numeric"
-                                autoComplete="one-time-code" // --- ENHANCEMENT 3: Smart Keypad / Autofill ---
+                                autoComplete="one-time-code"
                                 maxLength="1"
                                 className="w-12 h-16 text-center text-3xl font-extrabold border-2 border-gray-300 rounded-xl focus:ring-0 focus:border-blue-600 bg-gray-50 focus:bg-white transition-all text-gray-900"
                                 value={data}

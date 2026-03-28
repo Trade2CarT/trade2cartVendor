@@ -15,14 +15,15 @@ import RegisterForm from './pages/RegisterForm.jsx';
 import Process from './pages/Process.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 import PendingPage from './pages/PendingPage';
-import HistoryPage from './pages/HistoryPage.jsx'; // <-- IMPORTED NEW PAGE
-import { FaHome, FaUser, FaHistory } from 'react-icons/fa'; // <-- CHANGED ICON
+import HistoryPage from './pages/HistoryPage.jsx';
+import { FaHome, FaUser, FaHistory } from 'react-icons/fa';
 
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
 
 const AuthChecker = () => {
     const [destination, setDestination] = useState(null);
+    const location = useLocation();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -36,7 +37,12 @@ const AuthChecker = () => {
                 if (snapshot.exists()) {
                     const vendor = snapshot.val();
                     if (vendor.status === "approved") {
-                        setDestination("/dashboard");
+                        // Allow them to stay on their current path if it's a valid protected route
+                        if (location.pathname.startsWith('/process/')) {
+                            setDestination(location.pathname);
+                        } else {
+                            setDestination("/dashboard");
+                        }
                     } else {
                         setDestination("/pending");
                     }
@@ -49,18 +55,18 @@ const AuthChecker = () => {
             }
         });
         return () => unsubscribe();
-    }, []);
+    }, [location.pathname]);
 
     if (!destination) return <Loader fullscreen />;
+    if (destination === location.pathname) return <Outlet />;
     return <Navigate to={destination} replace />;
 };
 
-// --- UPDATED BOTTOM NAV (Fixed Error) ---
 const BottomNav = () => {
     const location = useLocation();
     const navItems = [
         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
-        { path: '/history', icon: <FaHistory size={24} />, label: 'History' }, // <-- UPDATED ROUTE
+        { path: '/history', icon: <FaHistory size={24} />, label: 'History' },
         { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
     ];
 
@@ -116,10 +122,6 @@ const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
     } else {
         if (vendor.status !== 'approved') {
             if (location.pathname !== '/pending') return <Navigate to="/pending" replace />;
-        } else {
-            if (location.pathname === '/register' || location.pathname === '/pending') {
-                return <Navigate to="/dashboard" replace />;
-            }
         }
     }
 
@@ -187,7 +189,7 @@ function App() {
                     <Route element={<ProtectedRoute installPrompt={installPrompt} handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/process/:assignmentId" element={<Process />} />
-                        <Route path="/history" element={<HistoryPage />} /> {/* <-- NEW ROUTE ADDED */}
+                        <Route path="/history" element={<HistoryPage />} />
                         <Route path="/account" element={<AccountPage />} />
                     </Route>
 
