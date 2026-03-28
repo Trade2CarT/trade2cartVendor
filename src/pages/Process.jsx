@@ -1,338 +1,418 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
-import { ref, get, onValue, push, update } from 'firebase/database';
-import { db, auth } from '../firebase';
-import { FaPlus, FaTrash, FaUser, FaMapMarkerAlt, FaPhoneAlt, FaTimes } from 'react-icons/fa';
-import Loader from './Loader';
-import SEO from '../components/SEO';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { getDatabase, ref, update, get } from "firebase/database";
+import { toast, Toaster } from "react-hot-toast";
+import TradePriceModal from "../components/TradePriceModal";
+import {
+    FaArrowLeft,
+    FaCheckCircle,
+    FaUser,
+    FaPhoneAlt,
+    FaMapMarkerAlt,
+    FaCalendarAlt,
+    FaListUl,
+    FaWeightHanging,
+    FaRupeeSign,
+    FaFileInvoiceDollar,
+    FaLock,
+    FaLocationArrow,
+    FaInfoCircle
+} from "react-icons/fa";
 
 const Process = () => {
+    const { state } = useLocation();
     const navigate = useNavigate();
-    const { assignmentId } = useParams();
+    const db = getDatabase();
 
-    const [vendor, setVendor] = useState(null);
-    const [assignment, setAssignment] = useState(null);
-    const [customer, setCustomer] = useState(null);
-    const [masterItems, setMasterItems] = useState([]);
+    const [assignment, setAssignment] = useState(state?.assignment || null);
+    const [wasteEntries, setWasteEntries] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const [billItems, setBillItems] = useState([]);
-    const [billCalculated, setBillCalculated] = useState(false);
-
-    const [showCustomModal, setShowCustomModal] = useState(false);
-    const [customName, setCustomName] = useState('');
-    const [customRate, setCustomRate] = useState('');
+    const [isOtpVerified, setIsOtpVerified] = useState(false);
+    const [otpInput, setOtpInput] = useState("");
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [weights, setWeights] = useState({});
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [prices, setPrices] = useState({});
 
     useEffect(() => {
-        if (!assignmentId) {
-            toast.error("No order specified.");
-            navigate('/dashboard');
+        if (!assignment) {
+            toast.error("Invalid assignment data.");
+            navigate(-1);
             return;
         }
+        fetchWasteEntries();
+        fetchPrices();
+    }, [assignment, navigate]);
 
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const user = auth.currentUser;
-                if (user) {
-                    const vendorRef = ref(db, `vendors/${user.uid}`);
-                    const vendorSnapshot = await get(vendorRef);
-                    if (vendorSnapshot.exists()) setVendor(vendorSnapshot.val());
-                }
-
-                const assignmentRef = ref(db, `assignments/${assignmentId}`);
-                const assignmentSnapshot = await get(assignmentRef);
-                if (!assignmentSnapshot.exists()) {
-                    toast.error("Order not found.");
-                    navigate('/dashboard');
-                    return;
-                }
-                const assignmentData = { id: assignmentSnapshot.key, ...assignmentSnapshot.val() };
-                setAssignment(assignmentData);
-
-                if (assignmentData.userId) {
-                    const userRef = ref(db, `users/${assignmentData.userId}`);
-                    const userSnapshot = await get(userRef);
-                    if (userSnapshot.exists()) setCustomer(userSnapshot.val());
-                }
-            } catch (error) {
-                toast.error("Failed to load critical order data.");
-            } finally { setLoading(false); }
-        };
-
-        fetchData();
-    }, [assignmentId, navigate]);
-
-    useEffect(() => {
-        const itemsRef = ref(db, 'items');
-        const unsubscribe = onValue(itemsRef, (snapshot) => {
-            const data = snapshot.val();
-            const itemsArray = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
-            setMasterItems(itemsArray);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // --- HELPER TO DISPLAY RANGE CLEANLY ---
-    const getRateDisplay = (item) => {
-        const min = parseFloat(item.minRate || item.rate || 0);
-        const max = parseFloat(item.maxRate || item.rate || 0);
-        return min === max ? `₹${min}` : `₹${min} - ₹${max}`;
-    };
-
-    const handleAddItem = (item) => {
-        const existingItem = billItems.find(billItem => billItem.id === item.id);
-        if (existingItem) {
-            toast.error(`${item.name} is already added. You can change weight below.`);
-        } else {
-            // Auto-start at the minimum rate allowed
-            const minRateVal = parseFloat(item.minRate || item.rate) || 0;
-            const newBillItem = {
-                ...item,
-                billItemId: `${item.id}-${Date.now()}`,
-                rateInput: minRateVal.toString(),
-                rate: minRateVal,
-                weightInput: "1",
-                weight: 1,
-                total: minRateVal * 1,
-            };
-            setBillItems(prev => [...prev, newBillItem]);
-        }
-    };
-
-    const handleAddCustom = () => {
-        if (!customName.trim() || !customRate.trim()) return toast.error("Please enter a name and price.");
-        const rateVal = parseFloat(customRate) || 0;
-        const newItem = {
-            id: `custom-${Date.now()}`,
-            billItemId: `custom-${Date.now()}`,
-            name: customName,
-            rateInput: customRate,
-            rate: rateVal,
-            weightInput: "1",
-            weight: 1,
-            unit: 'kg',
-            total: rateVal * 1,
-        };
-        setBillItems(prev => [...prev, newItem]);
-        setShowCustomModal(false);
-        setCustomName('');
-        setCustomRate('');
-    };
-
-    const handleUpdateRate = (billItemId, newRateInput) => {
-        setBillItems(prev => prev.map(item => {
-            if (item.billItemId === billItemId) {
-                const parsedRate = parseFloat(newRateInput) || 0;
-                return { ...item, rateInput: newRateInput, rate: parsedRate, total: parsedRate * item.weight };
-            }
-            return item;
-        }));
-    };
-
-    const handleUpdateWeight = (billItemId, newWeightInput) => {
-        setBillItems(prev => prev.map(item => {
-            if (item.billItemId === billItemId) {
-                const parsedWeight = parseFloat(newWeightInput) || 0;
-                return { ...item, weightInput: newWeightInput, weight: parsedWeight, total: item.rate * parsedWeight };
-            }
-            return item;
-        }));
-    };
-
-    const handleRemoveItem = (billItemId) => {
-        setBillItems(prev => prev.filter(item => item.billItemId !== billItemId));
-    };
-
-    const totalBill = useMemo(() => billItems.reduce((acc, item) => acc + (item.total || 0), 0), [billItems]);
-
-    // --- NEW: STRICT VALIDATION BEFORE CALCULATING ---
-    const handleCalculateBill = () => {
-        for (let item of billItems) {
-            if (item.id.startsWith('custom-')) continue; // Custom items have no limits
-
-            const min = parseFloat(item.minRate || item.rate || 0);
-            const max = parseFloat(item.maxRate || item.rate || Infinity);
-
-            if (item.rate < min || item.rate > max) {
-                toast.error(`Error: ${item.name} price must be between ₹${min} and ₹${max}.`);
-                return; // Blocks the vendor from proceeding
-            }
-            if (item.weight <= 0 || isNaN(item.weight)) {
-                toast.error(`Please enter a valid weight for ${item.name}.`);
-                return;
-            }
-        }
-        setBillCalculated(true);
-    };
-
-    const handleSubmitBill = async () => {
-        if (billItems.length === 0) return toast.error("Please add items to the bill.");
-        setIsSubmitting(true);
+    const fetchWasteEntries = async () => {
+        setLoading(true);
         try {
-            const billData = {
-                assignmentID: assignmentId,
-                vendorId: assignment.vendorId,
-                userId: assignment.userId,
-                billItems: billItems.map(({ id, billItemId, ...item }) => item),
-                totalBill,
-                timestamp: new Date().toISOString(),
-                mobile: assignment.mobile,
-            };
+            const entriesRef = ref(db, "wasteEntries");
+            const snapshot = await get(entriesRef);
+            if (snapshot.exists()) {
+                const allEntries = snapshot.val();
+                const userEntries = Object.keys(allEntries)
+                    .map((key) => ({ id: key, ...allEntries[key] }))
+                    .filter(
+                        (entry) =>
+                            entry.userID === assignment.userId &&
+                            (!entry.assignmentID || entry.assignmentID === assignment.id)
+                    );
+                setWasteEntries(userEntries);
+            }
+        } catch (error) {
+            toast.error("Failed to load waste details.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    const fetchPrices = async () => {
+        try {
+            const pricesRef = ref(db, "items");
+            const snapshot = await get(pricesRef);
+            if (snapshot.exists()) {
+                const pricesData = snapshot.val();
+                const itemPrices = {};
+                Object.keys(pricesData).forEach((key) => {
+                    const item = pricesData[key];
+                    itemPrices[item.name.toLowerCase()] = item.rate || item.minRate || 0;
+                });
+                setPrices(itemPrices);
+            }
+        } catch (error) {
+            toast.error("Failed to fetch current scrap rates.");
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!otpInput || otpInput.length !== 6) {
+            return toast.error("Please enter a valid 6-digit OTP.");
+        }
+        setIsProcessing(true);
+        try {
+            const userRef = ref(db, `users/${assignment.userId}`);
+            const userSnapshot = await get(userRef);
+
+            if (userSnapshot.exists() && userSnapshot.val().otp === otpInput) {
+                setIsOtpVerified(true);
+                toast.success("OTP Verified Successfully!");
+            } else {
+                toast.error("Incorrect OTP. Please try again.");
+            }
+        } catch (error) {
+            toast.error("Verification failed. Check your connection.");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleItemToggle = (entry) => {
+        if (navigator.vibrate) navigator.vibrate(20);
+        if (selectedItems.find((item) => item.id === entry.id)) {
+            setSelectedItems(selectedItems.filter((item) => item.id !== entry.id));
+            const newWeights = { ...weights };
+            delete newWeights[entry.id];
+            setWeights(newWeights);
+        } else {
+            setSelectedItems([...selectedItems, entry]);
+            setWeights({ ...weights, [entry.id]: entry.quantity || 1 });
+        }
+    };
+
+    const handleWeightChange = (id, newWeight) => {
+        const value = parseFloat(newWeight) || 0;
+        setWeights({ ...weights, [id]: value });
+    };
+
+    const generateBill = () => {
+        if (selectedItems.length === 0) {
+            return toast.error("Please select at least one item to generate a bill.");
+        }
+
+        let isWeightValid = true;
+        selectedItems.forEach((item) => {
+            if (!weights[item.id] || weights[item.id] <= 0) {
+                isWeightValid = false;
+            }
+        });
+
+        if (!isWeightValid) {
+            return toast.error("Please enter a valid weight for all selected items.");
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleFinalSubmit = async () => {
+        setIsProcessing(true);
+        try {
+            let totalBillAmount = 0;
             const updates = {};
-            const newBillRef = push(ref(db, 'bills'));
-            updates[`/bills/${newBillRef.key}`] = billData;
-            updates[`/assignments/${assignmentId}/status`] = 'completed';
-            updates[`/assignments/${assignmentId}/totalAmount`] = totalBill;
-            updates[`/assignments/${assignmentId}/timestamp`] = new Date().toISOString();
-            updates[`/users/${assignment.userId}/Status`] = 'available';
-            updates[`/users/${assignment.userId}/otp`] = null;
-            updates[`/users/${assignment.userId}/currentAssignmentId`] = null;
+            const timestamp = new Date().toISOString();
+
+            // 1. Mark Waste Entries as Processed
+            selectedItems.forEach((item) => {
+                const finalWeight = weights[item.id];
+                const itemRate = prices[item.name.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0;
+                const total = finalWeight * itemRate;
+                totalBillAmount += total;
+
+                updates[`wasteEntries/${item.id}`] = {
+                    ...item,
+                    status: "Processed",
+                    finalWeight: finalWeight,
+                    finalRate: itemRate,
+                    finalTotal: total,
+                    processedAt: timestamp,
+                    assignmentID: assignment.id,
+                };
+            });
+
+            // 2. Update Assignment Status
+            updates[`assignments/${assignment.id}/status`] = "Completed";
+            updates[`assignments/${assignment.id}/completedAt`] = timestamp;
+            updates[`assignments/${assignment.id}/totalAmount`] = totalBillAmount;
+
+            // 3. Reset User Status & Generate Bill Record
+            const billId = `BILL_${Date.now()}`;
+            updates[`users/${assignment.userId}/Status`] = "Active";
+            updates[`users/${assignment.userId}/otp`] = null;
+            updates[`users/${assignment.userId}/currentAssignmentId`] = null;
+
+            updates[`bills/${billId}`] = {
+                assignmentID: assignment.id,
+                userID: assignment.userId,
+                vendorID: assignment.vendorId,
+                totalBill: totalBillAmount,
+                createdAt: timestamp,
+                billItems: selectedItems.map((item) => ({
+                    name: item.name,
+                    weight: weights[item.id],
+                    rate: prices[item.name.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0,
+                    total: weights[item.id] * (prices[item.name.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0),
+                    unit: item.unit || "kg"
+                })),
+            };
 
             await update(ref(db), updates);
-            toast.success("Order completed successfully!");
-            navigate('/dashboard');
+
+            setIsModalOpen(false);
+            toast.success("Trade Completed Successfully!");
+            setTimeout(() => navigate(-1), 1500);
+
         } catch (error) {
-            toast.error("Error saving bill.");
-        } finally { setIsSubmitting(false); }
+            toast.error("Failed to complete trade.");
+            setIsProcessing(false);
+        }
     };
 
-    if (loading || !assignment || !customer || !vendor) return <Loader fullscreen />;
-
-    const availableItems = masterItems.filter(item => item.location?.toLowerCase() === vendor.location?.toLowerCase());
+    if (loading) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-gray-500 font-bold tracking-widest uppercase">Loading Details...</p>
+            </div>
+        );
+    }
 
     return (
-        <>
-            <SEO title={`Process Order - ${assignmentId.slice(-6)}`} />
-            <div className="pb-52 bg-gray-50 min-h-screen">
+        <div className="min-h-screen bg-gray-50 font-sans pb-24">
+            <Toaster position="top-center" />
 
-                <div className="bg-blue-600 text-white p-6 pt-8 rounded-b-3xl shadow-md mb-6">
-                    <h1 className="text-2xl font-extrabold mb-1">Process Pickup</h1>
-                    <p className="text-blue-100 font-medium text-sm">Order ID: #{assignmentId.slice(-6).toUpperCase()}</p>
+            {/* HEADER */}
+            <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white pt-6 pb-8 px-5 rounded-b-[40px] shadow-lg relative z-20">
+                <div className="flex items-center gap-4 relative z-10">
+                    <button onClick={() => navigate(-1)} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition backdrop-blur-sm">
+                        <FaArrowLeft />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-black tracking-tight">Process Order</h1>
+                        <p className="text-blue-100 text-xs uppercase tracking-widest font-bold mt-1">ID: #{assignment.id.substring(0, 8)}</p>
+                    </div>
+                </div>
+            </header>
+
+            <main className="px-4 -mt-4 relative z-30 max-w-2xl mx-auto space-y-4">
+
+                {/* CUSTOMER CARD */}
+                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-start mb-4">
+                        <h2 className="text-[14px] font-black uppercase tracking-widest text-gray-800 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><FaUser size={12} /></div>
+                            Customer Details
+                        </h2>
+                        <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider">
+                            {assignment.status}
+                        </span>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                        <p className="text-xl font-black text-gray-900 mb-1">{assignment.userName}</p>
+                        <div className="flex items-center gap-4 text-gray-600 font-medium">
+                            <span className="flex items-center gap-1.5"><FaPhoneAlt size={12} /> {assignment.userMobile}</span>
+                            <span className="flex items-center gap-1.5"><FaCalendarAlt size={12} /> {new Date(assignment.assignedAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="max-w-2xl mx-auto px-4 space-y-6">
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-                        <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-4">Customer Info</h2>
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center gap-4 text-gray-800 font-bold">
-                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><FaUser /></div>
-                                <span className="text-lg">{customer.name || 'N/A'}</span>
+                {/* ✅ PREMIUM LOCATION & NAVIGATION CARD */}
+                <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                    <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
+                            <FaMapMarkerAlt size={12} />
+                        </div>
+                        Pickup Location
+                    </h2>
+
+                    <p className="text-gray-700 font-bold mb-4 leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                        {assignment.userAddress || "Address not provided"}
+                    </p>
+
+                    {/* Show Google Maps iFrame and Navigation Button if Exact GPS exists */}
+                    {assignment.exactLat && assignment.exactLng ? (
+                        <>
+                            <div className="w-full h-48 rounded-2xl overflow-hidden shadow-inner border border-gray-200 mb-4 relative">
+                                <iframe
+                                    width="100%"
+                                    height="100%"
+                                    style={{ border: 0 }}
+                                    loading="lazy"
+                                    allowFullScreen
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                    src={`https://maps.google.com/maps?q=${assignment.exactLat},${assignment.exactLng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
+                                ></iframe>
                             </div>
-                            <a href={`tel:${customer.phone}`} className="flex items-center gap-4 text-gray-700 hover:text-blue-600 font-semibold">
-                                <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center"><FaPhoneAlt /></div>
-                                <span>{customer.phone}</span>
+
+                            {/* Native Google Maps Deeplink */}
+                            <a
+                                href={`https://www.google.com/maps/dir/?api=1&destination=${assignment.exactLat},${assignment.exactLng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md"
+                            >
+                                <FaLocationArrow /> Get Driving Directions
                             </a>
-                        </div>
-                    </div>
-
-                    {!billCalculated && (
-                        <div>
-                            <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Items</h2>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 auto-rows-fr">
-                                {availableItems.map(item => (
-                                    <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-full">
-                                        <span className="font-extrabold text-sm text-gray-800 leading-tight mb-3 line-clamp-2">{item.name}</span>
-                                        {/* Shows exact range (e.g. ₹30 - ₹40/kg) */}
-                                        <span className="mt-auto text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{getRateDisplay(item)}/{item.unit}</span>
-                                    </div>
-                                ))}
-                                <div onClick={() => setShowCustomModal(true)} className="bg-blue-50 p-3 rounded-2xl border-2 border-dashed border-blue-400 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-blue-700 h-full">
-                                    <FaPlus className="text-xl mb-2" />
-                                    <span className="mt-auto font-extrabold text-sm">Custom</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {billItems.length > 0 && (
-                        <div className="mt-6">
-                            <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Current Bill</h2>
-                            {billItems.map(item => (
-                                <div key={item.billItemId} className="bg-white p-4 rounded-2xl border-2 border-gray-100 mb-3 shadow-sm relative">
-                                    {!billCalculated && (
-                                        <button onClick={() => handleRemoveItem(item.billItemId)} className="absolute top-3 right-3 text-red-400 hover:text-red-600 p-2 active:scale-90"><FaTrash size={14} /></button>
-                                    )}
-                                    <h4 className="font-extrabold text-lg text-gray-900 pr-8">{item.name}</h4>
-
-                                    <div className="flex gap-2 mt-3 items-end">
-                                        <div className="flex-1 min-w-0">
-                                            <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Rate (₹)</label>
-                                            <input type="number" value={item.rateInput} disabled={billCalculated} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70 min-w-0" />
-                                            {/* Prompts the vendor with the allowed range underneath the input box */}
-                                            {!item.id.startsWith('custom-') && !billCalculated && (item.minRate !== item.maxRate) && (
-                                                <p className="text-[9px] text-gray-400 mt-1 text-center font-bold truncate">Limit: ₹{item.minRate || item.rate} - ₹{item.maxRate || item.rate}</p>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Qty/Wt</label>
-                                            <input type="number" value={item.weightInput} disabled={billCalculated} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} className="w-full px-2 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg font-bold text-gray-900 focus:border-blue-500 focus:ring-0 text-center disabled:opacity-70 min-w-0" />
-                                        </div>
-                                        <div className="flex-1 min-w-0 text-right pb-1">
-                                            <label className="block text-[10px] font-extrabold text-gray-400 uppercase mb-1 truncate">Total</label>
-                                            <div className="font-extrabold text-lg text-gray-900 truncate">₹{item.total.toFixed(2)}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                        </>
+                    ) : (
+                        <div className="p-4 bg-orange-50 text-orange-800 rounded-2xl border border-orange-100 text-sm font-bold flex items-center gap-3">
+                            <FaInfoCircle size={20} className="flex-shrink-0 text-orange-500" />
+                            Customer did not capture exact GPS pin. Please call them for directions.
                         </div>
                     )}
                 </div>
 
-                {billItems.length > 0 && (
-                    <div className="fixed bottom-16 md:bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] p-4 sm:p-6 z-30 pb-safe">
-                        <div className="max-w-2xl mx-auto">
-                            <div className="flex justify-between items-end mb-4">
-                                <span className="text-gray-500 font-extrabold uppercase tracking-widest text-sm">Grand Total</span>
-                                <span className="text-4xl font-extrabold text-green-600">₹{totalBill.toFixed(2)}</span>
-                            </div>
-
-                            {!billCalculated ? (
-                                <button onClick={handleCalculateBill} className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform">
-                                    Calculate Bill
-                                </button>
-                            ) : (
-                                <div className="flex gap-3">
-                                    <button onClick={() => setBillCalculated(false)} disabled={isSubmitting} className="flex-1 py-4 bg-gray-100 text-gray-800 font-extrabold text-lg rounded-xl active:bg-gray-200 transition-colors">
-                                        Edit
-                                    </button>
-                                    <button onClick={handleSubmitBill} disabled={isSubmitting} className="flex-[2] py-4 bg-green-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform disabled:opacity-70">
-                                        {isSubmitting ? 'Saving...' : 'Finish Pickup'}
-                                    </button>
-                                </div>
-                            )}
+                {/* STEP 1: OTP VERIFICATION */}
+                {!isOtpVerified ? (
+                    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
+                        <div className="w-16 h-16 bg-gray-900 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <FaLock size={24} />
                         </div>
-                    </div>
-                )}
-            </div>
+                        <h2 className="text-xl font-black text-gray-900 mb-2">Verify Customer OTP</h2>
+                        <p className="text-sm text-gray-500 font-medium mb-6">Ask the customer for the 6-digit PIN shown on their app.</p>
 
-            {showCustomModal && (
-                <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4 pb-10">
-                    <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm relative animate-slide-up">
-                        <button onClick={() => setShowCustomModal(false)} className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-700 bg-gray-100 rounded-full"><FaTimes /></button>
-                        <h3 className="text-2xl font-extrabold text-gray-900 mb-6">Add Custom Scrap</h3>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={otpInput}
+                            onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
+                            className="w-full text-center text-4xl font-black tracking-[0.5em] py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl mb-6 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
+                            placeholder="000000"
+                        />
 
-                        <div className="space-y-4 mb-8">
-                            <div>
-                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Item Name</label>
-                                <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. Copper Wire" className="w-full mt-1 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Rate / Price (₹)</label>
-                                <input type="number" value={customRate} onChange={(e) => setCustomRate(e.target.value)} placeholder="e.g. 50" className="w-full mt-1 p-4 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0" />
-                            </div>
-                        </div>
-
-                        <button onClick={handleAddCustom} className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95">
-                            Add to Bill
+                        <button
+                            onClick={handleVerifyOtp}
+                            disabled={isProcessing || otpInput.length !== 6}
+                            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500 active:scale-95 transition-all"
+                        >
+                            {isProcessing ? "Verifying..." : "Verify & Start Weighing"}
                         </button>
                     </div>
-                </div>
-            )}
-        </>
+                ) : (
+
+                    /* STEP 2: WEIGHING & BILLING */
+                    <div className="space-y-4 animate-fade-in-up">
+                        <div className="bg-green-50 p-4 rounded-3xl border border-green-200 flex items-center gap-3 shadow-sm">
+                            <FaCheckCircle className="text-green-600 text-2xl flex-shrink-0" />
+                            <div>
+                                <p className="font-black text-green-900">OTP Verified Successfully</p>
+                                <p className="text-xs font-bold text-green-700 uppercase tracking-widest mt-0.5">Proceed to weigh items</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                            <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center"><FaWeightHanging size={12} /></div>
+                                Select & Weigh Items
+                            </h2>
+
+                            <div className="space-y-3">
+                                {wasteEntries.length > 0 ? (
+                                    wasteEntries.map((entry) => {
+                                        const isSelected = selectedItems.find((item) => item.id === entry.id);
+                                        const currentRate = prices[entry.name.toLowerCase()] || parseFloat(entry.rate) || parseFloat(entry.minRate) || 0;
+
+                                        return (
+                                            <div key={entry.id} className={`p-4 rounded-2xl border-2 transition-all ${isSelected ? 'border-blue-500 bg-blue-50/30' : 'border-gray-100 bg-gray-50 hover:border-gray-300'}`}>
+                                                <div className="flex items-center justify-between mb-3 cursor-pointer" onClick={() => handleItemToggle(entry)}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-6 h-6 rounded flex items-center justify-center border-2 ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 bg-white'}`}>
+                                                            {isSelected && <FaCheckCircle size={12} />}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black text-gray-900 text-lg capitalize">{entry.name}</p>
+                                                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Rate: ₹{currentRate}/{entry.unit || 'kg'}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {isSelected && (
+                                                    <div className="mt-4 pt-4 border-t border-blue-100 animate-fade-in-down flex items-center gap-3">
+                                                        <label className="text-xs font-black uppercase tracking-widest text-gray-500 flex-1">Final Weight ({entry.unit || 'kg'}):</label>
+                                                        <input
+                                                            type="number"
+                                                            min="0.1"
+                                                            step="0.1"
+                                                            value={weights[entry.id] || ""}
+                                                            onChange={(e) => handleWeightChange(entry.id, e.target.value)}
+                                                            className="w-1/2 p-3 text-center bg-white border-2 border-blue-200 rounded-xl focus:border-blue-500 outline-none font-black text-blue-900 text-lg shadow-inner"
+                                                            placeholder="0.0"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <p className="text-gray-500 text-center py-6 font-bold bg-gray-50 rounded-2xl border border-gray-100">No scrap items found for this order.</p>
+                                )}
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={generateBill}
+                            disabled={selectedItems.length === 0}
+                            className="w-full py-4 mt-6 bg-green-600 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:shadow-none"
+                        >
+                            <FaFileInvoiceDollar /> Generate Final Bill
+                        </button>
+                    </div>
+                )}
+            </main>
+
+            {/* FINAL CONFIRMATION MODAL */}
+            <TradePriceModal
+                isOpen={isModalOpen}
+                onClose={() => !isProcessing && setIsModalOpen(false)}
+                selectedItems={selectedItems}
+                weights={weights}
+                prices={prices}
+                onConfirm={handleFinalSubmit}
+                isProcessing={isProcessing}
+            />
+
+        </div>
     );
 };
 
