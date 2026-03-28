@@ -33,15 +33,35 @@ const Process = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [prices, setPrices] = useState({});
 
+    // ✅ FIX 2: State to hold the Customer's Exact GPS coordinates
+    const [customerGps, setCustomerGps] = useState(null);
+
     useEffect(() => {
         if (!assignment) {
-            toast.error("Invalid assignment data.");
+            toast.error("Invalid assignment data. Please select the order again.");
             navigate(-1);
             return;
         }
+        fetchCustomerData();
         fetchWasteEntries();
         fetchPrices();
     }, [assignment, navigate]);
+
+    // ✅ FIX 2: Fetch the GPS coordinates from the User's Profile
+    const fetchCustomerData = async () => {
+        try {
+            const userRef = ref(db, `users/${assignment.userId}`);
+            const snap = await get(userRef);
+            if (snap.exists()) {
+                const userData = snap.val();
+                if (userData.lastLat && userData.lastLng) {
+                    setCustomerGps({ lat: userData.lastLat, lng: userData.lastLng });
+                }
+            }
+        } catch (error) {
+            console.log("Could not fetch user GPS");
+        }
+    };
 
     const fetchWasteEntries = async () => {
         setLoading(true);
@@ -54,7 +74,7 @@ const Process = () => {
                     .map((key) => ({ id: key, ...allEntries[key] }))
                     .filter(
                         (entry) =>
-                            entry.userID === assignment.userId &&
+                            (entry.userID === assignment.userId || entry.userId === assignment.userId) &&
                             (!entry.assignmentID || entry.assignmentID === assignment.id)
                     );
                 setWasteEntries(userEntries);
@@ -93,7 +113,8 @@ const Process = () => {
             const userRef = ref(db, `users/${assignment.userId}`);
             const userSnapshot = await get(userRef);
 
-            if (userSnapshot.exists() && userSnapshot.val().otp === otpInput) {
+            // ✅ FIX 1: Using '==' instead of '===' to prevent Number vs String mismatch
+            if (userSnapshot.exists() && userSnapshot.val().otp == otpInput) {
                 setIsOtpVerified(true);
                 toast.success("OTP Verified Successfully!");
             } else {
@@ -215,7 +236,6 @@ const Process = () => {
         <div className="min-h-screen bg-gray-50 font-sans pb-24">
             <Toaster position="top-center" />
 
-            {/* HEADER */}
             <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white pt-6 pb-8 px-5 rounded-b-[40px] shadow-lg relative z-20">
                 <div className="flex items-center gap-4 relative z-10">
                     <button onClick={() => navigate(-1)} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition backdrop-blur-sm">
@@ -230,7 +250,6 @@ const Process = () => {
 
             <main className="px-4 -mt-4 relative z-30 max-w-2xl mx-auto space-y-4">
 
-                {/* CUSTOMER CARD */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-start mb-4">
                         <h2 className="text-[14px] font-black uppercase tracking-widest text-gray-800 flex items-center gap-3">
@@ -251,7 +270,7 @@ const Process = () => {
                     </div>
                 </div>
 
-                {/* ✅ SLEEK LOCATION & MAP BUTTON CARD */}
+                {/* ✅ FIX 2: Location Card uses customerGps */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
@@ -264,10 +283,9 @@ const Process = () => {
                         {assignment.userAddress || "Address not provided"}
                     </p>
 
-                    {/* Show One-Tap Maps Button ONLY if Exact GPS exists */}
-                    {assignment.exactLat && assignment.exactLng ? (
+                    {customerGps ? (
                         <a
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${assignment.exactLat},${assignment.exactLng}`}
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${customerGps.lat},${customerGps.lng}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md"
@@ -282,7 +300,6 @@ const Process = () => {
                     )}
                 </div>
 
-                {/* STEP 1: OTP VERIFICATION */}
                 {!isOtpVerified ? (
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
                         <div className="w-16 h-16 bg-gray-900 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -311,7 +328,6 @@ const Process = () => {
                     </div>
                 ) : (
 
-                    /* STEP 2: WEIGHING & BILLING */
                     <div className="space-y-4 animate-fade-in-up">
                         <div className="bg-green-50 p-4 rounded-3xl border border-green-200 flex items-center gap-3 shadow-sm">
                             <FaCheckCircle className="text-green-600 text-2xl flex-shrink-0" />
