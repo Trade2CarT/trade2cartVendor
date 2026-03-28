@@ -4,7 +4,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
 import { auth, db } from './firebase.js';
-
+import BillingPage from './pages/BillingPage.jsx';
 import Header from './components/Header.jsx';
 import Footer from './components/Footer.jsx';
 import Loader from './pages/Loader';
@@ -67,7 +67,8 @@ const BottomNav = () => {
     const navItems = [
         { path: '/dashboard', icon: <FaHome size={24} />, label: 'Home' },
         { path: '/history', icon: <FaHistory size={24} />, label: 'History' },
-        { path: '/account', icon: <FaUser size={24} />, label: 'Profile' }
+        { path: '/account', icon: <FaUser size={24} />, label: 'Profile' },
+        
     ];
 
     return (
@@ -191,6 +192,7 @@ function App() {
                         <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/history" element={<HistoryPage />} />
                         <Route path="/account" element={<AccountPage />} />
+                        <Route path="/billing/:assignmentId" element={<BillingPage />} />
                     </Route>
 
                     <Route element={<ProtectedRoute installPrompt={installPrompt} hasLayout={false} />}>
