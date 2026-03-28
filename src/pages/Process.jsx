@@ -10,9 +10,7 @@ import {
     FaPhoneAlt,
     FaMapMarkerAlt,
     FaCalendarAlt,
-    FaListUl,
     FaWeightHanging,
-    FaRupeeSign,
     FaFileInvoiceDollar,
     FaLock,
     FaLocationArrow,
@@ -151,7 +149,6 @@ const Process = () => {
             const updates = {};
             const timestamp = new Date().toISOString();
 
-            // 1. Mark Waste Entries as Processed
             selectedItems.forEach((item) => {
                 const finalWeight = weights[item.id];
                 const itemRate = prices[item.name.toLowerCase()] || parseFloat(item.rate) || parseFloat(item.minRate) || 0;
@@ -169,12 +166,10 @@ const Process = () => {
                 };
             });
 
-            // 2. Update Assignment Status
             updates[`assignments/${assignment.id}/status`] = "Completed";
             updates[`assignments/${assignment.id}/completedAt`] = timestamp;
             updates[`assignments/${assignment.id}/totalAmount`] = totalBillAmount;
 
-            // 3. Reset User Status & Generate Bill Record
             const billId = `BILL_${Date.now()}`;
             updates[`users/${assignment.userId}/Status`] = "Active";
             updates[`users/${assignment.userId}/otp`] = null;
@@ -256,7 +251,7 @@ const Process = () => {
                     </div>
                 </div>
 
-                {/* ✅ PREMIUM LOCATION & NAVIGATION CARD */}
+                {/* ✅ SLEEK LOCATION & MAP BUTTON CARD */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
@@ -269,35 +264,20 @@ const Process = () => {
                         {assignment.userAddress || "Address not provided"}
                     </p>
 
-                    {/* Show Google Maps iFrame and Navigation Button if Exact GPS exists */}
+                    {/* Show One-Tap Maps Button ONLY if Exact GPS exists */}
                     {assignment.exactLat && assignment.exactLng ? (
-                        <>
-                            <div className="w-full h-48 rounded-2xl overflow-hidden shadow-inner border border-gray-200 mb-4 relative">
-                                <iframe
-                                    width="100%"
-                                    height="100%"
-                                    style={{ border: 0 }}
-                                    loading="lazy"
-                                    allowFullScreen
-                                    referrerPolicy="no-referrer-when-downgrade"
-                                    src={`https://maps.google.com/maps?q=${assignment.exactLat},${assignment.exactLng}&t=&z=16&ie=UTF8&iwloc=&output=embed`}
-                                ></iframe>
-                            </div>
-
-                            {/* Native Google Maps Deeplink */}
-                            <a
-                                href={`https://www.google.com/maps/dir/?api=1&destination=${assignment.exactLat},${assignment.exactLng}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md"
-                            >
-                                <FaLocationArrow /> Get Driving Directions
-                            </a>
-                        </>
+                        <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${assignment.exactLat},${assignment.exactLng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md"
+                        >
+                            <FaLocationArrow size={18} /> Open in Google Maps
+                        </a>
                     ) : (
                         <div className="p-4 bg-orange-50 text-orange-800 rounded-2xl border border-orange-100 text-sm font-bold flex items-center gap-3">
                             <FaInfoCircle size={20} className="flex-shrink-0 text-orange-500" />
-                            Customer did not capture exact GPS pin. Please call them for directions.
+                            No GPS Pin. Please call customer for directions.
                         </div>
                     )}
                 </div>
@@ -401,7 +381,6 @@ const Process = () => {
                 )}
             </main>
 
-            {/* FINAL CONFIRMATION MODAL */}
             <TradePriceModal
                 isOpen={isModalOpen}
                 onClose={() => !isProcessing && setIsModalOpen(false)}
