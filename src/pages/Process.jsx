@@ -22,7 +22,8 @@ const Process = () => {
     const navigate = useNavigate();
     const db = getDatabase();
 
-    const [assignment, setAssignment] = useState(state?.assignment || null);
+    // ✅ FIX: Initialize state directly from location.state and KEEP it.
+    const [assignment, setAssignment] = useState(() => state?.assignment || null);
     const [wasteEntries, setWasteEntries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isOtpVerified, setIsOtpVerified] = useState(false);
@@ -34,20 +35,20 @@ const Process = () => {
     const [prices, setPrices] = useState({});
     const [customerGps, setCustomerGps] = useState(null);
 
-    // ✅ FIX: Defensive programming to handle Firebase casing mismatches (userId vs userID)
     const targetUserId = assignment?.userId || assignment?.userID;
     const targetAssignmentId = assignment?.id || assignment?.assignmentID;
 
     useEffect(() => {
+        // Only run this check once on initial mount if data is missing
         if (!assignment || !targetUserId) {
-            toast.error("Invalid assignment data. Please select the order again.");
+            toast.error("Invalid order data. Please select the order from the Dashboard.");
             navigate(-1);
             return;
         }
         fetchCustomerData();
         fetchWasteEntries();
         fetchPrices();
-    }, [assignment, navigate]);
+    }, []); // ✅ FIX: Removed dependencies so it doesn't re-run and crash on state changes
 
     const fetchCustomerData = async () => {
         try {
@@ -106,15 +107,14 @@ const Process = () => {
     };
 
     const handleVerifyOtp = async () => {
-        if (!otpInput || otpInput.length !== 6) {
-            return toast.error("Please enter a valid 6-digit OTP.");
+        if (!otpInput || otpInput.length !== 4) { // Note: Your video showed a 4-digit OTP
+            return toast.error("Please enter the complete OTP.");
         }
         setIsProcessing(true);
         try {
             const userRef = ref(db, `users/${targetUserId}`);
             const userSnapshot = await get(userRef);
 
-            // Using '==' to safely check Number vs String OTP formats
             if (userSnapshot.exists() && userSnapshot.val().otp == otpInput) {
                 setIsOtpVerified(true);
                 toast.success("OTP Verified Successfully!");
@@ -224,7 +224,7 @@ const Process = () => {
         }
     };
 
-    if (loading) {
+    if (loading || !assignment) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
                 <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -271,7 +271,7 @@ const Process = () => {
                     </div>
                 </div>
 
-                {/* ✅ FIX: Turn-by-Turn Navigation URL Scheme */}
+                {/* ✅ FIX 1: Cleaned up duplicate address text */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
@@ -291,7 +291,7 @@ const Process = () => {
                             rel="noopener noreferrer"
                             className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md"
                         >
-                            <FaLocationArrow size={18} /> Start Navigation
+                            <FaLocationArrow size={18} /> Open in Google Maps
                         </a>
                     ) : (
                         <div className="p-4 bg-orange-50 text-orange-800 rounded-2xl border border-orange-100 text-sm font-bold flex items-center gap-3">
@@ -301,13 +301,14 @@ const Process = () => {
                     )}
                 </div>
 
+                {/* ✅ OPT VERIFICATION SECTION */}
                 {!isOtpVerified ? (
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
                         <div className="w-16 h-16 bg-gray-900 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                             <FaLock size={24} />
                         </div>
                         <h2 className="text-xl font-black text-gray-900 mb-2">Verify Customer OTP</h2>
-                        <p className="text-sm text-gray-500 font-medium mb-6">Ask the customer for the 6-digit PIN shown on their app.</p>
+                        <p className="text-sm text-gray-500 font-medium mb-6">Ask the customer for the PIN shown on their app.</p>
 
                         <input
                             type="text"
@@ -316,12 +317,12 @@ const Process = () => {
                             value={otpInput}
                             onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
                             className="w-full text-center text-4xl font-black tracking-[0.5em] py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl mb-6 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
-                            placeholder="000000"
+                            placeholder="0000" // Adjusted placeholder for 4-digit based on video
                         />
 
                         <button
                             onClick={handleVerifyOtp}
-                            disabled={isProcessing || otpInput.length !== 6}
+                            disabled={isProcessing || otpInput.length < 4} // Adjusted length based on video
                             className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:text-gray-500 active:scale-95 transition-all"
                         >
                             {isProcessing ? "Verifying..." : "Verify & Start Weighing"}
