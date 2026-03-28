@@ -32,12 +32,14 @@ const Process = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [prices, setPrices] = useState({});
-
-    // ✅ FIX 2: State to hold the Customer's Exact GPS coordinates
     const [customerGps, setCustomerGps] = useState(null);
 
+    // ✅ FIX: Defensive programming to handle Firebase casing mismatches (userId vs userID)
+    const targetUserId = assignment?.userId || assignment?.userID;
+    const targetAssignmentId = assignment?.id || assignment?.assignmentID;
+
     useEffect(() => {
-        if (!assignment) {
+        if (!assignment || !targetUserId) {
             toast.error("Invalid assignment data. Please select the order again.");
             navigate(-1);
             return;
@@ -47,10 +49,9 @@ const Process = () => {
         fetchPrices();
     }, [assignment, navigate]);
 
-    // ✅ FIX 2: Fetch the GPS coordinates from the User's Profile
     const fetchCustomerData = async () => {
         try {
-            const userRef = ref(db, `users/${assignment.userId}`);
+            const userRef = ref(db, `users/${targetUserId}`);
             const snap = await get(userRef);
             if (snap.exists()) {
                 const userData = snap.val();
@@ -74,8 +75,8 @@ const Process = () => {
                     .map((key) => ({ id: key, ...allEntries[key] }))
                     .filter(
                         (entry) =>
-                            (entry.userID === assignment.userId || entry.userId === assignment.userId) &&
-                            (!entry.assignmentID || entry.assignmentID === assignment.id)
+                            (entry.userID === targetUserId || entry.userId === targetUserId) &&
+                            (!entry.assignmentID || entry.assignmentID === targetAssignmentId)
                     );
                 setWasteEntries(userEntries);
             }
@@ -110,10 +111,10 @@ const Process = () => {
         }
         setIsProcessing(true);
         try {
-            const userRef = ref(db, `users/${assignment.userId}`);
+            const userRef = ref(db, `users/${targetUserId}`);
             const userSnapshot = await get(userRef);
 
-            // ✅ FIX 1: Using '==' instead of '===' to prevent Number vs String mismatch
+            // Using '==' to safely check Number vs String OTP formats
             if (userSnapshot.exists() && userSnapshot.val().otp == otpInput) {
                 setIsOtpVerified(true);
                 toast.success("OTP Verified Successfully!");
@@ -183,23 +184,23 @@ const Process = () => {
                     finalRate: itemRate,
                     finalTotal: total,
                     processedAt: timestamp,
-                    assignmentID: assignment.id,
+                    assignmentID: targetAssignmentId,
                 };
             });
 
-            updates[`assignments/${assignment.id}/status`] = "Completed";
-            updates[`assignments/${assignment.id}/completedAt`] = timestamp;
-            updates[`assignments/${assignment.id}/totalAmount`] = totalBillAmount;
+            updates[`assignments/${targetAssignmentId}/status`] = "Completed";
+            updates[`assignments/${targetAssignmentId}/completedAt`] = timestamp;
+            updates[`assignments/${targetAssignmentId}/totalAmount`] = totalBillAmount;
 
             const billId = `BILL_${Date.now()}`;
-            updates[`users/${assignment.userId}/Status`] = "Active";
-            updates[`users/${assignment.userId}/otp`] = null;
-            updates[`users/${assignment.userId}/currentAssignmentId`] = null;
+            updates[`users/${targetUserId}/Status`] = "Active";
+            updates[`users/${targetUserId}/otp`] = null;
+            updates[`users/${targetUserId}/currentAssignmentId`] = null;
 
             updates[`bills/${billId}`] = {
-                assignmentID: assignment.id,
-                userID: assignment.userId,
-                vendorID: assignment.vendorId,
+                assignmentID: targetAssignmentId,
+                userID: targetUserId,
+                vendorID: assignment.vendorId || assignment.vendorID || "UNKNOWN",
                 totalBill: totalBillAmount,
                 createdAt: timestamp,
                 billItems: selectedItems.map((item) => ({
@@ -243,7 +244,7 @@ const Process = () => {
                     </button>
                     <div>
                         <h1 className="text-2xl font-black tracking-tight">Process Order</h1>
-                        <p className="text-blue-100 text-xs uppercase tracking-widest font-bold mt-1">ID: #{assignment.id.substring(0, 8)}</p>
+                        <p className="text-blue-100 text-xs uppercase tracking-widest font-bold mt-1">ID: #{targetAssignmentId.substring(0, 8)}</p>
                     </div>
                 </div>
             </header>
@@ -270,7 +271,7 @@ const Process = () => {
                     </div>
                 </div>
 
-                {/* ✅ FIX 2: Location Card uses customerGps */}
+                {/* ✅ FIX: Turn-by-Turn Navigation URL Scheme */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
@@ -290,7 +291,7 @@ const Process = () => {
                             rel="noopener noreferrer"
                             className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md"
                         >
-                            <FaLocationArrow size={18} /> Open in Google Maps
+                            <FaLocationArrow size={18} /> Start Navigation
                         </a>
                     ) : (
                         <div className="p-4 bg-orange-50 text-orange-800 rounded-2xl border border-orange-100 text-sm font-bold flex items-center gap-3">
