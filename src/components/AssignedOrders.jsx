@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
-import { FaPhoneAlt, FaMapPin, FaRupeeSign, FaAngleDoubleRight } from 'react-icons/fa';
+import { FaPhoneAlt, FaMapPin, FaRupeeSign, FaAngleDoubleRight, FaLocationArrow } from 'react-icons/fa'; // Added FaLocationArrow
 
 // --- Swipe to Process Action ---
 const SwipeButton = ({ onSwipeSuccess }) => {
@@ -108,23 +108,12 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
 
             const userData = userSnapshot.val();
 
-            // Flexible check to handle String/Number mismatches
             if (userData.otp == enteredOtp) {
                 toast.success("OTP Verified! Opening order...");
-
-                // ✅ THE FIX: Navigate FIRST using the exact ID format your App.jsx expects
                 navigate(`/process/${otpModalOrder.id}`, {
-                    state: {
-                        assignment: otpModalOrder,
-                        bypassOtp: true
-                    }
+                    state: { assignment: otpModalOrder, bypassOtp: true }
                 });
-
-                // ✅ THE FIX: Close the modal AFTER navigation starts to prevent silent unmount crashes
-                setTimeout(() => {
-                    setOtpModalOrder(null);
-                }, 100);
-
+                setTimeout(() => setOtpModalOrder(null), 100);
             } else {
                 toast.error("Invalid OTP.");
             }
@@ -140,32 +129,51 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
             {assignedOrders.length === 0 ? (
                 <p className="text-center text-gray-500 py-8 font-bold">No new orders assigned.</p>
             ) : (
-                assignedOrders.map(order => (
-                    <div key={order.id} className="bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm relative">
-                        <div className="flex justify-between items-start mb-3">
-                            <div>
-                                <h3 className="font-extrabold text-xl text-gray-900">{usersMap[order.userId]?.name || 'N/A'}</h3>
-                                <p className="text-sm text-gray-700 mt-1 flex items-start gap-2 font-medium">
-                                    <FaMapPin className="text-red-500 mt-0.5" />
-                                    <span>{usersMap[order.userId]?.address || 'No address provided'}</span>
-                                </p>
+                assignedOrders.map(order => {
+                    const userProfile = usersMap[order.userId];
+                    return (
+                        <div key={order.id} className="bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-sm relative">
+                            <div className="flex justify-between items-start mb-3">
+                                <div>
+                                    <h3 className="font-extrabold text-xl text-gray-900">{userProfile?.name || 'N/A'}</h3>
+                                    <p className="text-sm text-gray-700 mt-1 flex items-start gap-2 font-medium">
+                                        <FaMapPin className="text-red-500 mt-0.5 flex-shrink-0" />
+                                        <span>{userProfile?.address || 'No address provided'}</span>
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <span className="block text-sm font-bold text-gray-500 uppercase tracking-wide">Est. Total</span>
+                                    <span className="text-2xl font-extrabold text-green-600 flex items-center justify-end">
+                                        <FaRupeeSign size={20} />{parseFloat(order.totalAmount || 0).toFixed(0)}
+                                    </span>
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <span className="block text-sm font-bold text-gray-500 uppercase tracking-wide">Est. Total</span>
-                                <span className="text-2xl font-extrabold text-green-600 flex items-center justify-end">
-                                    <FaRupeeSign size={20} />{parseFloat(order.totalAmount || 0).toFixed(0)}
-                                </span>
-                            </div>
-                        </div>
-                        <a href={`tel:${order.mobile}`} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-lg mb-2 transition-colors hover:bg-blue-100">
-                            <FaPhoneAlt /> Call {order.mobile}
-                        </a>
 
-                        <div className="mt-2 w-full">
-                            <SwipeButton onSwipeSuccess={() => setOtpModalOrder(order)} />
+                            {/* ACTION BUTTONS (Call & Maps) */}
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <a href={`tel:${order.mobile}`} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-lg transition-colors hover:bg-blue-100">
+                                    <FaPhoneAlt /> Call Customer
+                                </a>
+
+                                {/* ✅ MOVED GOOGLE MAPS BUTTON HERE */}
+                                {userProfile?.lastLat && userProfile?.lastLng && (
+                                    <a
+                                        href={`https://www.google.com/maps/dir/?api=1&destination=$${userProfile.lastLat},${userProfile.lastLng}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 font-bold rounded-lg transition-colors hover:bg-green-100"
+                                    >
+                                        <FaLocationArrow /> Get Directions
+                                    </a>
+                                )}
+                            </div>
+
+                            <div className="mt-2 w-full">
+                                <SwipeButton onSwipeSuccess={() => setOtpModalOrder(order)} />
+                            </div>
                         </div>
-                    </div>
-                ))
+                    );
+                })
             )}
             {otpModalOrder && <OtpModal order={otpModalOrder} onClose={() => setOtpModalOrder(null)} onVerify={handleProcessOrder} loading={verifyLoading} />}
         </div>

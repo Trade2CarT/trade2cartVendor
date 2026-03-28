@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-// ✅ IMPORTED NEW QUERY TOOLS HERE:
+// Added "auth" to get the logged-in vendor's location
 import { getDatabase, ref, get, onValue, query, orderByChild, equalTo } from "firebase/database";
+import { auth } from "../firebase";
 import { toast, Toaster } from "react-hot-toast";
 import {
     FaArrowLeft,
@@ -13,8 +14,6 @@ import {
     FaWeightHanging,
     FaFileInvoiceDollar,
     FaLock,
-    FaLocationArrow,
-    FaInfoCircle,
     FaPlus,
     FaTrash,
     FaTimes
@@ -28,18 +27,15 @@ const Process = () => {
     const initialAssignment = state?.assignment || (state?.id ? state : null);
 
     const [assignment, setAssignment] = useState(initialAssignment);
+    const [vendor, setVendor] = useState(null); // ✅ NEW: Store vendor profile
     const [loading, setLoading] = useState(true);
     const [isOtpVerified, setIsOtpVerified] = useState(() => state?.otpVerified || state?.bypassOtp || false);
     const [otpInput, setOtpInput] = useState("");
-    const [customerGps, setCustomerGps] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Vendor Building the Bill Locally
     const [masterItems, setMasterItems] = useState([]);
     const [billItems, setBillItems] = useState([]);
-    const [wasteEntries, setWasteEntries] = useState([]);
 
-    // Custom Item Modal
     const [showCustomModal, setShowCustomModal] = useState(false);
     const [customName, setCustomName] = useState('');
     const [customRate, setCustomRate] = useState('');
@@ -53,52 +49,21 @@ const Process = () => {
             navigate(-1);
             return;
         }
-        fetchCustomerData();
-        fetchWasteEntries();
+        fetchVendorProfile();
         fetchMasterItems();
     }, []);
 
-    const fetchCustomerData = async () => {
+    // ✅ NEW: Fetch Vendor's location to filter the items
+    const fetchVendorProfile = async () => {
         try {
-            const userRef = ref(db, `users/${targetUserId}`);
-            const snap = await get(userRef);
-            if (snap.exists()) {
-                const userData = snap.val();
-                if (userData.lastLat && userData.lastLng) {
-                    setCustomerGps({ lat: userData.lastLat, lng: userData.lastLng });
-                }
+            const user = auth.currentUser;
+            if (user) {
+                const vendorRef = ref(db, `vendors/${user.uid}`);
+                const snap = await get(vendorRef);
+                if (snap.exists()) setVendor(snap.val());
             }
         } catch (error) {
-            console.log("Could not fetch user GPS");
-        }
-    };
-
-    // ✅ THE SECURE QUERY FIX: Only downloads this specific user's cart to pass Firebase Security Rules
-    const fetchWasteEntries = async () => {
-        setLoading(true);
-        try {
-            const entriesRef = query(
-                ref(db, "wasteEntries"),
-                orderByChild("userID"),
-                equalTo(targetUserId)
-            );
-
-            const snapshot = await get(entriesRef);
-
-            if (snapshot.exists()) {
-                const allEntries = snapshot.val();
-                const userEntries = Object.keys(allEntries)
-                    .map((key) => ({ id: key, ...allEntries[key] }))
-                    .filter(
-                        (entry) => (!entry.assignmentID || entry.assignmentID === targetAssignmentId)
-                    );
-                setWasteEntries(userEntries);
-            }
-        } catch (error) {
-            toast.error("Failed to load user cart data.");
-            console.error(error);
-        } finally {
-            setLoading(false);
+            console.error("Could not fetch vendor profile");
         }
     };
 
@@ -134,13 +99,12 @@ const Process = () => {
                 toast.error("Incorrect OTP. Please try again.");
             }
         } catch (error) {
-            toast.error("Verification failed. Check your connection.");
+            toast.error("Verification failed.");
         } finally {
             setIsProcessing(false);
         }
     };
 
-    // --- ADD / EDIT ITEM LOGIC ---
     const getRateDisplay = (item) => {
         const min = parseFloat(item.minRate || item.rate || 0);
         const max = parseFloat(item.maxRate || item.rate || 0);
@@ -212,11 +176,8 @@ const Process = () => {
     };
 
     const generateBill = () => {
-        if (billItems.length === 0) {
-            return toast.error("Please add at least one item to generate a bill.");
-        }
+        if (billItems.length === 0) return toast.error("Please add at least one item.");
 
-        // STRICT VALIDATION
         for (let item of billItems) {
             if (item.id.startsWith('custom-')) continue;
             const min = parseFloat(item.minRate || item.rate || 0);
@@ -230,7 +191,6 @@ const Process = () => {
             }
         }
 
-        // FORMAT DATA FOR BILLING PAGE
         const weightsObj = {};
         const pricesObj = {};
         billItems.forEach(item => {
@@ -239,23 +199,22 @@ const Process = () => {
         });
 
         navigate(`/billing/${targetAssignmentId}`, {
-            state: {
-                assignment: assignment,
-                selectedItems: billItems,
-                weights: weightsObj,
-                prices: pricesObj
-            }
+            state: { assignment, selectedItems: billItems, weights: weightsObj, prices: pricesObj }
         });
     };
 
-    if (loading || !assignment) {
+    if (loading || !assignment || !vendor) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
                 <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-4 text-gray-500 font-bold tracking-widest uppercase">Loading Details...</p>
             </div>
         );
     }
+
+    // ✅ THE FILTER FIX: Only shows items matching the vendor's location
+    const availableItems = vendor?.location
+        ? masterItems.filter(item => item.location?.toLowerCase() === vendor.location?.toLowerCase())
+        : masterItems;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pb-24 relative">
@@ -282,11 +241,7 @@ const Process = () => {
                             <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><FaUser size={12} /></div>
                             Customer Details
                         </h2>
-                        <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-wider">
-                            {assignment.status}
-                        </span>
                     </div>
-
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         <p className="text-xl font-black text-gray-900 mb-1">{assignment.userName}</p>
                         <div className="flex items-center gap-4 text-gray-600 font-medium">
@@ -296,28 +251,18 @@ const Process = () => {
                     </div>
                 </div>
 
-                {/* LOCATION CARD */}
+                {/* ✅ CLEANED ADDRESS CARD (No Map Button Here) */}
                 <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
                     <h2 className="text-[14px] font-black uppercase tracking-widest mb-4 text-gray-800 flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-green-50 text-green-600 flex items-center justify-center"><FaMapMarkerAlt size={12} /></div>
                         Pickup Location
                     </h2>
-                    <p className="text-gray-700 font-bold mb-4 leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <p className="text-gray-700 font-bold leading-relaxed bg-gray-50 p-4 rounded-2xl border border-gray-100">
                         {assignment.userAddress || "Address not provided"}
                     </p>
-                    {customerGps ? (
-                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${customerGps.lat},${customerGps.lng}`} target="_blank" rel="noopener noreferrer" className="w-full py-4 bg-green-600 text-white rounded-2xl font-black text-[15px] flex items-center justify-center gap-2 hover:bg-green-700 active:scale-95 transition-all shadow-md">
-                            <FaLocationArrow size={18} /> Open in Google Maps
-                        </a>
-                    ) : (
-                        <div className="p-4 bg-orange-50 text-orange-800 rounded-2xl border border-orange-100 text-sm font-bold flex items-center gap-3">
-                            <FaInfoCircle size={20} className="flex-shrink-0 text-orange-500" />
-                            No GPS Pin. Please call customer for directions.
-                        </div>
-                    )}
                 </div>
 
-                {/* OTP VERIFICATION OR WEIGHING */}
+                {/* OTP OR WEIGHING */}
                 {!isOtpVerified ? (
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center animate-fade-in-up">
                         <div className="w-16 h-16 bg-gray-900 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg"><FaLock size={24} /></div>
@@ -346,12 +291,16 @@ const Process = () => {
                         <div>
                             <h2 className="text-xs font-extrabold text-gray-400 uppercase tracking-widest mb-3 ml-1">Tap to Add Scrap Items</h2>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {masterItems.map(item => (
+                                {availableItems.length > 0 ? availableItems.map(item => (
                                     <div key={item.id} onClick={() => handleAddItem(item)} className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform hover:border-blue-300 h-24">
                                         <span className="font-extrabold text-sm text-gray-800 leading-tight mb-2 line-clamp-2">{item.name}</span>
                                         <span className="mt-auto text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{getRateDisplay(item)}/{item.unit || 'kg'}</span>
                                     </div>
-                                ))}
+                                )) : (
+                                    <div className="col-span-2 sm:col-span-3 text-center p-4 bg-gray-100 rounded-2xl border border-gray-200 text-gray-500 font-bold text-sm">
+                                        No predefined items found for your location.
+                                    </div>
+                                )}
                                 <div onClick={() => setShowCustomModal(true)} className="bg-blue-50 p-3 rounded-2xl border-2 border-dashed border-blue-400 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-blue-700 h-24">
                                     <FaPlus className="text-xl mb-1" />
                                     <span className="font-extrabold text-sm">Custom</span>
@@ -372,9 +321,6 @@ const Process = () => {
                                             <div className="flex-1">
                                                 <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Rate (₹)</label>
                                                 <input type="number" value={item.rateInput} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 outline-none text-center" />
-                                                {!item.id.startsWith('custom-') && (item.minRate !== item.maxRate) && (
-                                                    <p className="text-[9px] text-gray-400 mt-1 text-center font-bold">Limit: ₹{item.minRate || item.rate} - ₹{item.maxRate || item.rate}</p>
-                                                )}
                                             </div>
                                             <div className="flex-1">
                                                 <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Wt ({item.unit || 'kg'})</label>
