@@ -110,16 +110,18 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
             // Using '==' to safely check Number vs String OTP formats
             if (userData.otp == enteredOtp) {
                 toast.success("OTP Verified!");
-                setOtpModalOrder(null);
 
-                // ✅ THE FIX: Navigate to /process and PASS the assignment data in the state!
-                // We also pass bypassOtp: true so Process.jsx knows the OTP is already done.
-                navigate('/process', {
+                // ✅ THE FIX: Put the ID back in the URL so the Route matches, 
+                // while STILL passing the state!
+                navigate(`/process/${otpModalOrder.id}`, {
                     state: {
                         assignment: otpModalOrder,
                         bypassOtp: true
                     }
                 });
+
+                // We move this down here so the modal doesn't close before navigation starts
+                setOtpModalOrder(null);
 
             } else {
                 toast.error("Invalid OTP.");
@@ -130,7 +132,6 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
             setVerifyLoading(false);
         }
     };
-
     return (
         <div className="flex flex-col gap-4">
             {assignedOrders.length === 0 ? (
