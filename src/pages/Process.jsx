@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getDatabase, ref, update, get } from "firebase/database";
+import { getDatabase, ref, get } from "firebase/database";
 import { toast, Toaster } from "react-hot-toast";
 import {
     FaArrowLeft,
@@ -28,7 +28,7 @@ const Process = () => {
     const [wasteEntries, setWasteEntries] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // ✅ Instantly unlocks the screen if Admin or Dashboard passes bypassOtp: true
+    // Instantly unlocks the screen if Admin or Dashboard passes bypassOtp: true
     const [isOtpVerified, setIsOtpVerified] = useState(() => state?.otpVerified || state?.bypassOtp || false);
 
     const [otpInput, setOtpInput] = useState("");
@@ -150,7 +150,7 @@ const Process = () => {
         setWeights({ ...weights, [id]: value });
     };
 
-    // ✅ UPDATED: Now navigates directly to the Billing Page with all data!
+    // ✅ THE FIX: Navigate to the Billing Page with all the collected data
     const generateBill = () => {
         if (selectedItems.length === 0) {
             return toast.error("Please select at least one item to generate a bill.");
@@ -167,8 +167,7 @@ const Process = () => {
             return toast.error("Please enter a valid weight for all selected items.");
         }
 
-        // Navigate to your dedicated billing page (e.g., /billing/:id)
-        // Make sure the route name here matches what you have in App.jsx!
+        // Sends the vendor directly to the Billing Page
         navigate(`/billing/${targetAssignmentId}`, {
             state: {
                 assignment: assignment,
@@ -240,7 +239,6 @@ const Process = () => {
                         {assignment.userAddress || "Address not provided"}
                     </p>
 
-                    {/* ✅ Official Google Maps App Universal Link */}
                     {customerGps ? (
                         <a
                             href={`https://www.google.com/maps/dir/?api=1&destination=${customerGps.lat},${customerGps.lng}`}
