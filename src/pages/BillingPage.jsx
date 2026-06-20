@@ -150,7 +150,7 @@ const BillingPage = () => {
             <main className="px-4 -mt-5 relative max-w-2xl mx-auto space-y-4">
                 {/* Customer */}
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
-                    <div className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 flex-shrink-0">
+                    <div className="w-11 h-11 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 flex-shrink-0">
                         <FaUser size={18} />
                     </div>
                     <div className="min-w-0">
@@ -186,7 +186,7 @@ const BillingPage = () => {
                         })}
                     </div>
 
-                    <div className="bg-gradient-to-br from-green-500 to-emerald-600 px-6 py-6 flex justify-between items-center">
+                    <div className="bg-gradient-to-br from-green-500 to-brand-600 px-6 py-6 flex justify-between items-center">
                         <div>
                             <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Amount to Pay</p>
                             <p className="font-black text-4xl text-white mt-1 tabular-nums">₹{totalAmount.toFixed(2)}</p>

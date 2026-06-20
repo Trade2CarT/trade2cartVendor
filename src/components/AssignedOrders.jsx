@@ -28,12 +28,12 @@ const SwipeButton = ({ onSwipeSuccess }) => {
 
     return (
         <div ref={sliderRef} className="relative w-full h-14 bg-gray-100 rounded-2xl overflow-hidden flex items-center shadow-inner">
-            <div className="absolute left-0 top-0 h-full bg-blue-500 transition-all duration-75" style={{ width: `${sliderPos + 24}px` }} />
+            <div className="absolute left-0 top-0 h-full bg-brand-500 transition-all duration-75" style={{ width: `${sliderPos + 24}px` }} />
             <span className="absolute w-full text-center text-gray-500 font-extrabold text-xs uppercase tracking-widest pointer-events-none z-10">Swipe to Process</span>
             <div
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                className="absolute left-1 h-12 w-12 bg-white rounded-xl shadow-md flex items-center justify-center text-blue-600 z-20"
+                className="absolute left-1 h-12 w-12 bg-white rounded-xl shadow-md flex items-center justify-center text-brand-600 z-20"
                 style={{ transform: `translateX(${sliderPos}px)` }}
             >
                 <FaAngleDoubleRight size={20} />
@@ -86,7 +86,7 @@ const OtpModal = ({ onClose, onVerify, loading }) => {
                             value={digit}
                             onChange={e => handleChange(e, i)}
                             onKeyDown={e => handleKeyDown(e, i)}
-                            className="w-16 h-20 text-center text-4xl font-black border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 bg-gray-50 text-gray-900 outline-none transition-all"
+                            className="w-16 h-20 text-center text-4xl font-black border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-brand-100 focus:border-brand-500 bg-gray-50 text-gray-900 outline-none transition-all"
                         />
                     ))}
                 </div>
@@ -159,7 +159,7 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 mb-3">
-                            <a href={`tel:${order.mobile}`} className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-50 text-blue-700 font-bold text-sm rounded-xl transition-colors hover:bg-blue-100">
+                            <a href={`tel:${order.mobile}`} className="inline-flex items-center gap-2 px-3.5 py-2 bg-brand-50 text-brand-700 font-bold text-sm rounded-xl transition-colors hover:bg-brand-100">
                                 <FaPhoneAlt size={13} /> Call
                             </a>
                             {hasLocation && (

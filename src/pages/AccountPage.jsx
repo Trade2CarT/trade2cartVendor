@@ -143,7 +143,7 @@ const AccountPage = () => {
                             className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
                         >
                             <div className="flex items-center gap-4">
-                                <FaPaperPlane className="text-xl text-blue-500" />
+                                <FaPaperPlane className="text-xl text-brand-500" />
                                 <span>Raise a Query</span>
                             </div>
                             <FaChevronRight className="text-gray-400" />
@@ -185,7 +185,7 @@ const AccountPage = () => {
                         className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
                     >
                         <div className="flex items-center gap-4">
-                            <FaFileContract className="text-xl text-blue-500" />
+                            <FaFileContract className="text-xl text-brand-500" />
                             <span>Terms of Service</span>
                         </div>
                         <FaChevronRight className="text-gray-400" />

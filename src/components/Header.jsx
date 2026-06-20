@@ -27,7 +27,7 @@ const Header = () => {
                 {installPrompt && (
                     <button
                         onClick={handleInstallClick}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold hover:bg-blue-700"
+                        className="flex items-center gap-2 bg-brand-600 text-white px-3 py-2 rounded-lg font-semibold hover:bg-brand-700"
                         title="Install Trade2Cart Vendor App"
                     >
                         <FaDownload />

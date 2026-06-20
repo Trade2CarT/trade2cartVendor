@@ -126,7 +126,7 @@ const Dashboard = () => {
         <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} className="min-h-screen bg-gray-50">
             <SEO title="Dashboard – Trade2Cart" />
             {isRefreshing && (
-                <div className="flex justify-center items-center p-3 text-blue-600 font-bold bg-blue-50 text-sm">
+                <div className="flex justify-center items-center p-3 text-brand-600 font-bold bg-brand-50 text-sm">
                     <FaSyncAlt className="animate-spin mr-2" /> Refreshing...
                 </div>
             )}
@@ -146,7 +146,7 @@ const Dashboard = () => {
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3 mb-5">
-                    <StatCard icon={<FaBoxOpen size={18} />} title="Pending" value={assignedOrders.length} accent="bg-blue-50 text-blue-600" />
+                    <StatCard icon={<FaBoxOpen size={18} />} title="Pending" value={assignedOrders.length} accent="bg-brand-50 text-brand-600" />
                     <StatCard icon={<FaCheckDouble size={18} />} title="Done Today" value={completedTodayCount} accent="bg-green-50 text-green-600" />
                     <StatCard icon={<FaRupeeSign size={18} />} title="Earned" value={`₹${totalEarningsToday.toFixed(0)}`} accent="bg-purple-50 text-purple-600" />
                 </div>
@@ -154,7 +154,7 @@ const Dashboard = () => {
                 {/* Price CTA */}
                 <button
                     onClick={() => setShowPriceModal(true)}
-                    className="w-full flex items-center justify-center gap-2.5 py-4 mb-6 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-extrabold text-base rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
+                    className="w-full flex items-center justify-center gap-2.5 py-4 mb-6 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-extrabold text-base rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                 >
                     <FaTag /> Check Today's Prices
                 </button>
@@ -164,7 +164,7 @@ const Dashboard = () => {
                     <div className="flex p-1.5 gap-1.5 bg-gray-50 border-b border-gray-100">
                         <button
                             onClick={() => setActiveTab('assigned')}
-                            className={`flex-1 py-2.5 rounded-xl font-extrabold text-sm transition-all ${activeTab === 'assigned' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500'}`}
+                            className={`flex-1 py-2.5 rounded-xl font-extrabold text-sm transition-all ${activeTab === 'assigned' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500'}`}
                         >
                             Assigned ({assignedOrders.length})
                         </button>

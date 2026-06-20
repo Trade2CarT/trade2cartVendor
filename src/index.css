@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+/* =================================================================
+   TRADE2CART VENDOR · BRAND PALETTE  (sampled from the logo)
+   Green swoosh  → brand   (primary)
+   Orange "2"    → accent  (highlights)
+================================================================= */
+@theme {
+    --color-brand-50: #edf9f1;
+    --color-brand-100: #d3f0dd;
+    --color-brand-200: #a9e1bd;
+    --color-brand-300: #7ed09a;
+    --color-brand-400: #57c07c;
+    --color-brand-500: #41ab66;
+    --color-brand-600: #2f9354;
+    --color-brand-700: #267544;
+    --color-brand-800: #205c38;
+    --color-brand-900: #1b4b2f;
+
+    --color-accent-50: #fef5e8;
+    --color-accent-100: #fde6c5;
+    --color-accent-200: #fbcd8b;
+    --color-accent-300: #f8b153;
+    --color-accent-400: #f59e30;
+    --color-accent-500: #f2911e;
+    --color-accent-600: #d97a10;
+    --color-accent-700: #b35f0d;
+}
+
 /* Modal / sheet entrance — slides up from the bottom on mobile. */
 @keyframes slide-up {
     from { transform: translateY(100%); opacity: 0; }

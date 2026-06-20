@@ -240,7 +240,7 @@ const Process = () => {
     if (loading || !assignment || !vendor) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-                <div className="w-14 h-14 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-14 h-14 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
     }
@@ -303,7 +303,7 @@ const Process = () => {
                         <input
                             type="text" inputMode="numeric" maxLength={6} value={otpInput}
                             onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
-                            className="w-full text-center text-4xl font-black tracking-[0.4em] py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl mb-5 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none" placeholder="0000"
+                            className="w-full text-center text-4xl font-black tracking-[0.4em] py-4 bg-gray-50 border-2 border-gray-200 rounded-2xl mb-5 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 outline-none" placeholder="0000"
                         />
                         <button onClick={handleVerifyOtp} disabled={isProcessing || otpInput.length < 4} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-gray-800 disabled:bg-gray-300 transition-all active:scale-[0.98]">
                             {isProcessing ? "Verifying..." : "Verify & Start Weighing"}
@@ -330,11 +330,11 @@ const Process = () => {
                                             key={item.id}
                                             onClick={() => handleItemClick(item)}
                                             className={`p-3 rounded-2xl border-2 flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-all h-24 relative
-                                                ${isSelected ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-100 bg-white hover:border-blue-200'}`}
+                                                ${isSelected ? 'border-brand-500 bg-brand-50 shadow-sm' : 'border-gray-100 bg-white hover:border-brand-200'}`}
                                         >
-                                            {isSelected && <FaCheckCircle className="absolute top-2 right-2 text-blue-500" />}
+                                            {isSelected && <FaCheckCircle className="absolute top-2 right-2 text-brand-500" />}
                                             <span className="font-extrabold text-sm text-gray-800 leading-tight mb-2 line-clamp-2">{item.name}</span>
-                                            <span className={`mt-auto text-[10px] font-bold px-2 py-1 rounded-md ${isSelected ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600'}`}>
+                                            <span className={`mt-auto text-[10px] font-bold px-2 py-1 rounded-md ${isSelected ? 'bg-brand-500 text-white' : 'bg-brand-50 text-brand-600'}`}>
                                                 {getRateDisplay(item)}/{item.unit || 'kg'}
                                             </span>
                                         </div>
@@ -344,7 +344,7 @@ const Process = () => {
                                         No predefined items found for your location.
                                     </div>
                                 )}
-                                <div onClick={() => setShowCustomModal(true)} className="bg-blue-50 p-3 rounded-2xl border-2 border-dashed border-blue-300 flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-blue-700 h-24">
+                                <div onClick={() => setShowCustomModal(true)} className="bg-brand-50 p-3 rounded-2xl border-2 border-dashed border-brand-300 flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 transition-transform text-brand-700 h-24">
                                     <FaPlus className="text-xl mb-1" />
                                     <span className="font-extrabold text-sm">Custom</span>
                                 </div>
@@ -364,14 +364,14 @@ const Process = () => {
                                             <div className="flex gap-3 mt-3 items-end">
                                                 <div className="flex-1">
                                                     <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Rate (₹)</label>
-                                                    <input type="number" value={item.rateInput} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 outline-none text-center" />
+                                                    <input type="number" value={item.rateInput} onChange={(e) => handleUpdateRate(item.billItemId, e.target.value)} className="w-full px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:border-brand-500 outline-none text-center" />
                                                     {!item.id.startsWith('custom-') && (item.minRate !== item.maxRate) && (
                                                         <p className="text-[9px] text-gray-400 mt-1 text-center font-bold">₹{item.minRate || item.rate} - ₹{item.maxRate || item.rate}</p>
                                                     )}
                                                 </div>
                                                 <div className="flex-1">
                                                     <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Wt ({item.unit || 'kg'})</label>
-                                                    <input type="number" autoFocus={item.weightInput === ""} value={item.weightInput} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} placeholder="0.0" className="w-full px-2 py-2.5 bg-blue-50 border border-blue-200 rounded-xl font-bold text-blue-900 focus:border-blue-500 outline-none text-center" />
+                                                    <input type="number" autoFocus={item.weightInput === ""} value={item.weightInput} onChange={(e) => handleUpdateWeight(item.billItemId, e.target.value)} placeholder="0.0" className="w-full px-2 py-2.5 bg-brand-50 border border-brand-200 rounded-xl font-bold text-brand-900 focus:border-brand-500 outline-none text-center" />
                                                 </div>
                                                 <div className="flex-1 text-right pb-1.5">
                                                     <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Total</label>
@@ -411,11 +411,11 @@ const Process = () => {
                         <div className="space-y-4 mb-6">
                             <div>
                                 <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Item Name</label>
-                                <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. Copper Wire" className="w-full mt-1.5 p-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 outline-none" />
+                                <input type="text" value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. Copper Wire" className="w-full mt-1.5 p-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-brand-500 outline-none" />
                             </div>
                             <div>
                                 <label className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Rate / Price (₹)</label>
-                                <input type="number" value={customRate} onChange={(e) => setCustomRate(e.target.value)} placeholder="e.g. 50" className="w-full mt-1.5 p-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-blue-500 outline-none" />
+                                <input type="number" value={customRate} onChange={(e) => setCustomRate(e.target.value)} placeholder="e.g. 50" className="w-full mt-1.5 p-3.5 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-gray-900 focus:border-brand-500 outline-none" />
                             </div>
                         </div>
                         <button onClick={handleAddCustom} className="w-full py-4 bg-gray-900 text-white font-black text-lg rounded-2xl shadow-lg active:scale-[0.98] transition-transform">

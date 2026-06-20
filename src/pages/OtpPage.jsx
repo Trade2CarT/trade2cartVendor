@@ -82,7 +82,7 @@ const OtpPage = () => {
 
                     <div className="flex items-center justify-center gap-2 mt-2 mb-8 text-gray-700 font-bold text-lg">
                         <span>+91 {phone}</span>
-                        <button onClick={() => navigate('/')} className="p-2 text-blue-600 bg-blue-50 rounded-full">
+                        <button onClick={() => navigate('/')} className="p-2 text-brand-600 bg-brand-50 rounded-full">
                             <FaEdit size={16} />
                         </button>
                     </div>
@@ -96,7 +96,7 @@ const OtpPage = () => {
                                 inputMode="numeric"
                                 autoComplete="one-time-code"
                                 maxLength="1"
-                                className="w-12 h-16 text-center text-3xl font-extrabold border-2 border-gray-300 rounded-xl focus:ring-0 focus:border-blue-600 bg-gray-50 focus:bg-white transition-all text-gray-900"
+                                className="w-12 h-16 text-center text-3xl font-extrabold border-2 border-gray-300 rounded-xl focus:ring-0 focus:border-brand-600 bg-gray-50 focus:bg-white transition-all text-gray-900"
                                 value={data}
                                 onChange={(e) => handleChange(e, index)}
                                 onKeyDown={(e) => handleKeyDown(e, index)}
@@ -107,7 +107,7 @@ const OtpPage = () => {
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform"
+                        className="w-full py-4 bg-brand-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform"
                     >
                         Verify & Continue
                     </button>

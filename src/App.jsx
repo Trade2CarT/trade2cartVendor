@@ -77,7 +77,7 @@ const BottomNav = () => {
                 {navItems.map((item) => {
                     const isActive = location.pathname.startsWith(item.path);
                     return (
-                        <Link key={item.path} to={item.path} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
+                        <Link key={item.path} to={item.path} className={`flex flex-col items-center justify-center w-full h-full transition-colors ${isActive ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}>
                             {item.icon}
                             <span className="text-[10px] font-bold mt-1">{item.label}</span>
                         </Link>

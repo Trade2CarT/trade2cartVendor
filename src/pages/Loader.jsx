@@ -6,10 +6,10 @@ const Loader = ({ fullscreen = false }) => {
     <div className="flex flex-col items-center justify-center">
       <div className="relative flex items-center justify-center">
         {/* Background soft ring */}
-        <div className="absolute w-28 h-28 border-4 border-blue-100 rounded-full"></div>
+        <div className="absolute w-28 h-28 border-4 border-brand-100 rounded-full"></div>
 
         {/* Smooth spinning accent ring */}
-        <div className="absolute w-28 h-28 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+        <div className="absolute w-28 h-28 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
 
         {/* Central breathing logo card */}
         <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center z-10 animate-pulse">
@@ -17,7 +17,7 @@ const Loader = ({ fullscreen = false }) => {
         </div>
       </div>
       {/* Pulsing subtle text */}
-      <p className="mt-6 text-blue-600 font-extrabold tracking-widest text-sm uppercase animate-pulse">
+      <p className="mt-6 text-brand-600 font-extrabold tracking-widest text-sm uppercase animate-pulse">
         Please Wait
       </p>
     </div>

@@ -38,7 +38,7 @@ const LoginPage = () => {
             window.confirmationResult = confirmationResult;
             toast.success('OTP sent successfully!');
             navigate('/otp', { state: { phone } });
-        } catch (error) {
+        } catch {
             toast.error('Failed to send OTP. Please try again.');
         } finally {
             setLoading(false);
@@ -54,8 +54,10 @@ const LoginPage = () => {
                 <div className="w-full max-w-sm mx-auto bg-white p-8 rounded-3xl shadow-xl text-center relative border border-gray-100">
                     {loading && <LoaderOverlay />}
 
-                    <img src={logo} alt="Trade2Cart Logo" className="w-24 h-24 mx-auto mb-6" />
-                    <h2 className="text-3xl font-extrabold text-gray-900">Partner Login</h2>
+                    <img src={logo} alt="Trade2Cart Logo" className="w-24 h-24 mx-auto mb-3" />
+                    <p className="text-2xl font-black tracking-tight text-gray-900">Trade<span className="text-accent-500">2</span>Cart</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mt-1 mb-5">Partner Console</p>
+                    <h2 className="text-2xl font-extrabold text-gray-900">Partner Login</h2>
                     <p className="text-gray-600 font-medium mt-2 mb-8">Enter your mobile number to continue.</p>
 
                     <div className="relative group flex items-center mb-6">
@@ -67,7 +69,7 @@ const LoginPage = () => {
                             autoComplete="tel"
                             maxLength="10"
                             placeholder="Mobile Number"
-                            className="w-full pl-16 pr-4 py-4 bg-gray-100 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-blue-600 focus:bg-white text-2xl font-extrabold text-gray-900 tracking-wider"
+                            className="w-full pl-16 pr-4 py-4 bg-gray-100 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-brand-600 focus:bg-white text-2xl font-extrabold text-gray-900 tracking-wider"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                         />
@@ -76,7 +78,7 @@ const LoginPage = () => {
                     <button
                         onClick={handleGetOtp}
                         disabled={loading}
-                        className="w-full py-4 bg-blue-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform disabled:opacity-70"
+                        className="w-full py-4 bg-brand-600 text-white font-extrabold text-xl rounded-xl shadow-lg active:scale-95 transition-transform disabled:opacity-70"
                     >
                         Get OTP
                     </button>

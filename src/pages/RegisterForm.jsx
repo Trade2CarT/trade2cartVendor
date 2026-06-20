@@ -37,7 +37,7 @@ const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength,
         <input
             type={type} name={name} placeholder={placeholder} value={value}
             onChange={onChange} maxLength={maxLength} inputMode={inputMode}
-            className={`w-full ${icon ? 'pl-12' : 'pl-4'} pr-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 focus:ring-0 ${error ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-600 bg-gray-50'}`}
+            className={`w-full ${icon ? 'pl-12' : 'pl-4'} pr-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 focus:ring-0 ${error ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-brand-600 bg-gray-50'}`}
         />
         {error && <p className="text-sm text-red-600 font-bold mt-1 ml-1">{error}</p>}
     </div>
@@ -187,7 +187,7 @@ const RegisterForm = () => {
                             <div className="flex flex-col items-center mb-8">
                                 <label className="cursor-pointer relative">
                                     <img src={files.profilePhoto ? URL.createObjectURL(files.profilePhoto) : `https://ui-avatars.com/api/?name=${formData.name || 'Vendor'}&background=e2e8f0&color=64748b&size=120`} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-md" />
-                                    <div className="absolute bottom-0 right-0 bg-blue-600 p-3 rounded-full text-white shadow-lg border-2 border-white">
+                                    <div className="absolute bottom-0 right-0 bg-brand-600 p-3 rounded-full text-white shadow-lg border-2 border-white">
                                         <FaCamera size={20} />
                                     </div>
                                     <input type="file" className="hidden" accept="image/*" capture="user" onChange={(e) => handleFileChange(e, 'profilePhoto')} />
@@ -203,11 +203,11 @@ const RegisterForm = () => {
                         <div>
                             <div className="relative mb-4">
                                 <FaMapMarkerAlt className="absolute left-4 top-5 text-gray-500 text-lg" />
-                                <textarea name="address" placeholder="Full Business Address *" value={formData.address} onChange={handleInputChange} className={`w-full pl-12 pr-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 focus:ring-0 ${formErrors.address ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50 focus:border-blue-600'}`} rows="3" />
+                                <textarea name="address" placeholder="Full Business Address *" value={formData.address} onChange={handleInputChange} className={`w-full pl-12 pr-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 focus:ring-0 ${formErrors.address ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50 focus:border-brand-600'}`} rows="3" />
                                 {formErrors.address && <p className="text-sm text-red-600 font-bold mt-1">{formErrors.address}</p>}
                             </div>
                             <div className="relative mb-4">
-                                <select name="location" value={formData.location} onChange={handleInputChange} className={`w-full px-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 ${formErrors.location ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50 focus:border-blue-600'}`}>
+                                <select name="location" value={formData.location} onChange={handleInputChange} className={`w-full px-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 ${formErrors.location ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50 focus:border-brand-600'}`}>
                                     <option value="" disabled>Select Location *</option>
                                     {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
                                 </select>
@@ -219,15 +219,15 @@ const RegisterForm = () => {
                     {step === 3 && (
                         <div>
                             <TextInput name="aadhaar" type="tel" inputMode="numeric" placeholder="Aadhaar Number *" value={formData.aadhaar} onChange={handleInputChange} error={formErrors.aadhaar} icon={<FaIdCard />} maxLength={12} />
-                            <FileInput label="Aadhaar Photo *" error={formErrors.aadhaarPhoto} capture="environment" icon={<FaCamera className="text-blue-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} file={files.aadhaarPhoto} />
+                            <FileInput label="Aadhaar Photo *" error={formErrors.aadhaarPhoto} capture="environment" icon={<FaCamera className="text-brand-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} file={files.aadhaarPhoto} />
 
                             <TextInput name="pan" inputMode="text" placeholder="PAN Number *" value={formData.pan} onChange={handleInputChange} error={formErrors.pan} icon={<FaIdCard />} maxLength={10} />
                             <FileInput label="PAN Photo *" error={formErrors.panPhoto} capture="environment" icon={<FaCamera className="text-green-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'panPhoto')} file={files.panPhoto} />
 
                             <div className="pt-4 mt-6 border-t-2 border-gray-100">
                                 <label className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl cursor-pointer">
-                                    <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-6 h-6 rounded border-gray-400 text-blue-600 focus:ring-blue-500" />
-                                    <span className="text-md font-bold text-gray-700 leading-tight">I agree to the <span onClick={(e) => { e.preventDefault(); setModalContent('terms') }} className="text-blue-600 underline">Terms</span> & <span onClick={(e) => { e.preventDefault(); setModalContent('privacy') }} className="text-blue-600 underline">Privacy Policy</span>. <span className="text-red-500">*</span></span>
+                                    <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-6 h-6 rounded border-gray-400 text-brand-600 focus:ring-brand-500" />
+                                    <span className="text-md font-bold text-gray-700 leading-tight">I agree to the <span onClick={(e) => { e.preventDefault(); setModalContent('terms') }} className="text-brand-600 underline">Terms</span> & <span onClick={(e) => { e.preventDefault(); setModalContent('privacy') }} className="text-brand-600 underline">Privacy Policy</span>. <span className="text-red-500">*</span></span>
                                 </label>
                             </div>
                         </div>
@@ -236,7 +236,7 @@ const RegisterForm = () => {
                     <div className="flex gap-4 pt-6 mt-8">
                         {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="flex-1 py-4 bg-gray-200 text-gray-800 font-extrabold text-lg rounded-xl active:bg-gray-300 transition">Back</button>}
                         {step < 3 ? (
-                            <button type="button" onClick={nextStep} className="flex-1 py-4 bg-blue-600 text-white font-extrabold text-lg rounded-xl active:bg-blue-700 transition shadow-lg">Next Step</button>
+                            <button type="button" onClick={nextStep} className="flex-1 py-4 bg-brand-600 text-white font-extrabold text-lg rounded-xl active:bg-brand-700 transition shadow-lg">Next Step</button>
                         ) : (
                             <button type="button" onClick={handleSubmit} className="flex-1 py-4 bg-green-600 text-white font-extrabold text-lg rounded-xl active:bg-green-700 transition shadow-lg">Submit</button>
                         )}
