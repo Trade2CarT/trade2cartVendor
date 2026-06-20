@@ -12,24 +12,41 @@ import Loader from './Loader';
 import PolicyModal from '../components/PolicyModal';
 import { TermsAndConditions, PrivacyPolicy } from '../components/Agreement';
 
-const FileInput = ({ label, icon, onChange, file, error, accept, capture }) => (
-    <div className="flex flex-col mb-4">
-        <label className="block text-sm font-extrabold text-gray-900 mb-2">{label}</label>
-        <div className="flex items-center gap-4">
-            <label className={`flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer bg-gray-50 active:bg-gray-200 transition-colors ${error ? 'border-red-400 bg-red-50' : 'border-gray-400'}`}>
-                {icon}
-                <span className="mt-2 text-sm text-gray-700 font-bold text-center">Tap to capture {label}</span>
-                <input type="file" className="hidden" accept={accept} capture={capture} onChange={onChange} />
-            </label>
-            {file && (
-                <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border-2 border-gray-300 shadow-sm">
-                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-cover" />
-                </div>
-            )}
+// Create an object URL ONCE per file and revoke the previous one.
+// (Calling URL.createObjectURL() inside JSX makes a new blob URL on every
+//  re-render, so each keystroke re-fetched the image and leaked memory.)
+const useObjectUrl = (file) => {
+    const [url, setUrl] = useState(null);
+    useEffect(() => {
+        if (!file) { setUrl(null); return; }
+        const objectUrl = URL.createObjectURL(file);
+        setUrl(objectUrl);
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [file]);
+    return url;
+};
+
+const FileInput = ({ label, icon, onChange, file, error, accept, capture }) => {
+    const preview = useObjectUrl(file);
+    return (
+        <div className="flex flex-col mb-4">
+            <label className="block text-sm font-extrabold text-gray-900 mb-2">{label}</label>
+            <div className="flex items-center gap-4">
+                <label className={`flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer bg-gray-50 active:bg-gray-200 transition-colors ${error ? 'border-red-400 bg-red-50' : 'border-gray-400'}`}>
+                    {icon}
+                    <span className="mt-2 text-sm text-gray-700 font-bold text-center">Tap to capture {label}</span>
+                    <input type="file" className="hidden" accept={accept} capture={capture} onChange={onChange} />
+                </label>
+                {preview && (
+                    <div className="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border-2 border-gray-300 shadow-sm">
+                        <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                )}
+            </div>
+            {error && <p className="text-xs text-red-600 mt-1 font-bold">{error}</p>}
         </div>
-        {error && <p className="text-xs text-red-600 mt-1 font-bold">{error}</p>}
-    </div>
-);
+    );
+};
 
 const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength, type = "text", inputMode }) => (
     <div className="relative mb-4">
@@ -55,6 +72,9 @@ const RegisterForm = () => {
     const [loaderText, setLoaderText] = useState('');
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [modalContent, setModalContent] = useState(null);
+
+    // Stable preview URL for the selfie (created once per file, not per render).
+    const profilePreview = useObjectUrl(files.profilePhoto);
 
     useEffect(() => {
         const fetchLocations = async () => {
@@ -196,7 +216,7 @@ const RegisterForm = () => {
                         <div>
                             <div className="flex flex-col items-center mb-8">
                                 <label className="cursor-pointer relative">
-                                    <img src={files.profilePhoto ? URL.createObjectURL(files.profilePhoto) : `https://ui-avatars.com/api/?name=${formData.name || 'Vendor'}&background=e2e8f0&color=64748b&size=120`} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-md" />
+                                    <img src={profilePreview || `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name || 'Vendor')}&background=e2e8f0&color=64748b&size=120`} alt="Profile" className="w-32 h-32 rounded-full object-cover border-4 border-gray-200 shadow-md" />
                                     <div className="absolute bottom-0 right-0 bg-brand-600 p-3 rounded-full text-white shadow-lg border-2 border-white">
                                         <FaCamera size={20} />
                                     </div>
