@@ -85,10 +85,14 @@ const BillingPage = () => {
                 totalAmount: totalAmount
             }));
 
-            // Reset the customer for their next pickup. Uses lowercase `status`
-            // (was the stray capital-S `Status`, which created a duplicate field).
+            // Reset the customer for their next pickup. The whole user app reads
+            // the capital-S `Status` field (TaskPage, TradePage scheduling guard,
+            // admin). Writing lowercase `status` here left Status stuck on
+            // "On-Schedule" → customer could not book again. Clear the stray
+            // lowercase field too.
             promises.push(update(ref(db, `users/${targetUserId}`), {
-                status: "active",
+                Status: "Active",
+                status: null,
                 otp: null,
                 currentAssignmentId: null
             }));
