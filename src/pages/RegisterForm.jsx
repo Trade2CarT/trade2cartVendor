@@ -157,8 +157,16 @@ const RegisterForm = () => {
             return toast.error("You must agree to the Terms & Privacy Policy.");
         }
 
-        setLoading(true);
         const user = auth.currentUser;
+        // If the admin deleted this account, the session is no longer valid —
+        // any write will fail. Send them to log in again (a fresh OTP login
+        // gives a clean account they can register with).
+        if (!user) {
+            toast.error("Your session has expired. Please log in again to continue.");
+            return navigate('/login', { replace: true });
+        }
+
+        setLoading(true);
 
         try {
             // Updated to use "URL" at the end of the keys so it maps correctly to the Header/Dashboard
@@ -183,9 +191,17 @@ const RegisterForm = () => {
                 ...uploadedUrls
             });
             toast.success('Registration submitted!');
-            navigate('/pending');
-        } catch {
-            toast.error("Registration failed. Please try again.");
+            navigate('/pending', { replace: true });
+        } catch (err) {
+            console.error("Registration failed:", err);
+            const code = err?.code || '';
+            const text = (err?.message || '').toLowerCase();
+            if (code.includes('unauthorized') || code.includes('permission') || text.includes('permission')) {
+                // Stale/revoked session (e.g. after admin deletion) — re-login fixes it.
+                toast.error("Permission denied. Please log out and log in again, then retry.");
+            } else {
+                toast.error(`Registration failed: ${err?.message || 'Please try again.'}`);
+            }
         } finally {
             setLoading(false);
             setLoaderText('');
