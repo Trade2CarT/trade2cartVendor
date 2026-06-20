@@ -1,0 +1,16 @@
+# This file configures your site for deployment on Netlify
+
+[build]
+  # This command builds your site for production
+  command = "npm run build"
+  
+  # The directory that contains the built site
+  publish = "dist"
+
+# This rule is crucial for Single Page Applications (SPAs) like yours.
+# It ensures that all paths are redirected to your index.html,
+# allowing React Router to handle client-side navigation correctly.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

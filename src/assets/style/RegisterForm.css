@@ -1,0 +1,89 @@
+.register-form-container {
+  max-width: 500px;
+  margin: 40px auto;
+  padding: 30px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.register-form-container h2 {
+  text-align: center;
+  margin-bottom: 8px;
+  font-size: 24px;
+  color: #2c3e50;
+}
+
+.register-form-container p.subtitle {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.register-form-container label {
+  display: block;
+  margin-top: 16px;
+  font-weight: 500;
+  color: #34495e;
+}
+
+.register-form-container input[type="text"],
+.register-form-container input[type="file"] {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.register-form-container input[type="file"] {
+  background-color: #f9f9f9;
+  cursor: pointer;
+}
+
+.register-form-container .upload-button {
+  background-color: #ecf0f1;
+  color: #2c3e50;
+  padding: 10px;
+  text-align: center;
+  border: 1px dashed #bbb;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.register-form-container .upload-button:hover {
+  background-color: #e0e0e0;
+}
+
+.register-form-container .form-row {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.register-form-container .form-row > div {
+  flex: 1;
+}
+
+.register-form-container button {
+  width: 100%;
+  padding: 12px;
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  margin-top: 24px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.register-form-container button:hover {
+  background-color: #27ae60;
+}

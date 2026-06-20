@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Modal / sheet entrance — slides up from the bottom on mobile. */
+@keyframes slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.animate-slide-up { animation: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Subtle content reveal for cards / sections. */
+@keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
+
+/* Respect users who prefer no motion. */
+@media (prefers-reduced-motion: reduce) {
+    .animate-slide-up,
+    .animate-fade-in-up {
+        animation: none;
+    }
+}
