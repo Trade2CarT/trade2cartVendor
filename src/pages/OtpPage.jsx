@@ -19,18 +19,29 @@ const OtpPage = () => {
     useEffect(() => { inputsRef.current[0]?.focus(); }, []);
 
     const handleChange = (e, index) => {
-        const { value } = e.target;
-        if (isNaN(value)) return;
+        // Keep digits only; take the last one typed so overwriting a filled box works.
+        const digits = e.target.value.replace(/\D/g, '');
         const newOtp = [...otp];
-        newOtp[index] = value;
+        newOtp[index] = digits ? digits[digits.length - 1] : '';
         setOtp(newOtp);
-        if (value && index < 5) inputsRef.current[index + 1]?.focus();
+        if (digits && index < 5) inputsRef.current[index + 1]?.focus();
     };
 
     const handleKeyDown = (e, index) => {
         if (e.key === 'Backspace' && !otp[index] && index > 0) {
             inputsRef.current[index - 1]?.focus();
         }
+    };
+
+    // Let users paste the whole 6-digit code (or have it auto-filled) at once.
+    const handlePaste = (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+        if (!pasted) return;
+        const newOtp = new Array(6).fill('');
+        for (let i = 0; i < pasted.length; i++) newOtp[i] = pasted[i];
+        setOtp(newOtp);
+        inputsRef.current[Math.min(pasted.length, 5)]?.focus();
     };
 
     const handleSubmit = async () => {
@@ -100,6 +111,7 @@ const OtpPage = () => {
                                 value={data}
                                 onChange={(e) => handleChange(e, index)}
                                 onKeyDown={(e) => handleKeyDown(e, index)}
+                                onPaste={handlePaste}
                             />
                         ))}
                     </div>

@@ -19,26 +19,42 @@ const LoginPage = () => {
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
+    // Clear any leftover reCAPTCHA when leaving the page, so the next visit starts clean.
     useEffect(() => {
-        if (!window.recaptchaVerifier) {
-            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                'size': 'invisible',
-            });
-        }
+        return () => clearVerifier();
     }, []);
 
+    // A reCAPTCHA token is SINGLE-USE. Reusing the same verifier is why the 2nd
+    // attempt (after editing the number) silently failed. So we tear down any
+    // existing verifier and build a brand-new one before every send.
+    const clearVerifier = () => {
+        if (window.recaptchaVerifier) {
+            try { window.recaptchaVerifier.clear(); } catch { /* already gone */ }
+            window.recaptchaVerifier = null;
+        }
+    };
+
+    const getFreshVerifier = () => {
+        clearVerifier();
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+        return window.recaptchaVerifier;
+    };
+
     const handleGetOtp = async () => {
-        if (phone.length !== 10) return toast.error('Please enter a valid 10-digit mobile number.');
+        if (!/^\d{10}$/.test(phone)) {
+            return toast.error('Please enter a valid 10-digit mobile number.');
+        }
         setLoading(true);
 
         try {
-            const verifier = window.recaptchaVerifier;
-            const fullPhoneNumber = `+91${phone}`;
-            const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, verifier);
+            const verifier = getFreshVerifier();
+            const confirmationResult = await signInWithPhoneNumber(auth, `+91${phone}`, verifier);
             window.confirmationResult = confirmationResult;
             toast.success('OTP sent successfully!');
             navigate('/otp', { state: { phone } });
-        } catch {
+        } catch (err) {
+            console.error('OTP send failed:', err);
+            clearVerifier(); // reset so the user can retry immediately with a clean reCAPTCHA
             toast.error('Failed to send OTP. Please try again.');
         } finally {
             setLoading(false);
@@ -67,11 +83,12 @@ const LoginPage = () => {
                             type="tel"
                             inputMode="numeric"
                             autoComplete="tel"
+                            pattern="[0-9]*"
                             maxLength="10"
                             placeholder="Mobile Number"
                             className="w-full pl-16 pr-4 py-4 bg-gray-100 border-2 border-gray-200 rounded-xl focus:ring-0 focus:border-brand-600 focus:bg-white text-2xl font-extrabold text-gray-900 tracking-wider"
                             value={phone}
-                            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                            onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
                         />
                     </div>
 
