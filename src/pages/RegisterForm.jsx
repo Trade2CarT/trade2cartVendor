@@ -72,7 +72,15 @@ const RegisterForm = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        const finalValue = name === 'pan' ? value.toUpperCase() : value;
+        let finalValue = value;
+        // Filter input per field so only valid characters can ever be entered.
+        if (name === 'aadhaar') {
+            finalValue = value.replace(/\D/g, '').slice(0, 12);            // digits only, max 12
+        } else if (name === 'pan') {
+            finalValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10); // A-Z/0-9, max 10
+        } else if (name === 'name') {
+            finalValue = value.replace(/[^a-zA-Z\s.'-]/g, '');             // letters, spaces, . ' -
+        }
         setFormData(prev => ({ ...prev, [name]: finalValue }));
         setFormErrors(prev => ({ ...prev, [name]: '' })); // Clear error on typing
     };
@@ -90,10 +98,10 @@ const RegisterForm = () => {
         let errors = {};
 
         if (step === 1) {
-            if (!formData.name.trim()) { errors.name = "Full Name is mandatory"; valid = false; }
+            if (formData.name.trim().length < 2) { errors.name = "Please enter your full name"; valid = false; }
             if (!files.profilePhoto) { errors.profilePhoto = "Profile Photo is mandatory"; valid = false; }
         } else if (step === 2) {
-            if (!formData.address.trim()) { errors.address = "Business Address is mandatory"; valid = false; }
+            if (formData.address.trim().length < 10) { errors.address = "Please enter a complete business address"; valid = false; }
             if (!formData.location) { errors.location = "Location selection is mandatory"; valid = false; }
         }
 
@@ -112,9 +120,11 @@ const RegisterForm = () => {
         let valid = true;
         let errors = {};
 
-        if (!formData.aadhaar || formData.aadhaar.length !== 12) { errors.aadhaar = "Valid 12-digit Aadhaar is required"; valid = false; }
+        // Aadhaar: exactly 12 digits, never starts with 0 or 1 (per UIDAI format).
+        if (!/^[2-9]\d{11}$/.test(formData.aadhaar)) { errors.aadhaar = "Enter a valid 12-digit Aadhaar number"; valid = false; }
         if (!files.aadhaarPhoto) { errors.aadhaarPhoto = "Aadhaar Photo is mandatory"; valid = false; }
-        if (!formData.pan || formData.pan.length !== 10) { errors.pan = "Valid 10-character PAN is required"; valid = false; }
+        // PAN: 5 letters + 4 digits + 1 letter, e.g. ABCDE1234F.
+        if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(formData.pan)) { errors.pan = "Enter a valid PAN (e.g. ABCDE1234F)"; valid = false; }
         if (!files.panPhoto) { errors.panPhoto = "PAN Photo is mandatory"; valid = false; }
 
         setFormErrors(errors);

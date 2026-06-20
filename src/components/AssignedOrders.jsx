@@ -49,18 +49,27 @@ const OtpModal = ({ onClose, onVerify, loading }) => {
     useEffect(() => { inputsRef.current[0]?.focus(); }, []);
 
     const handleChange = (e, index) => {
-        const { value } = e.target;
-        if (isNaN(value)) return;
+        const digits = e.target.value.replace(/\D/g, '');
         const newOtp = [...otp];
-        newOtp[index] = value;
+        newOtp[index] = digits ? digits[digits.length - 1] : '';
         setOtp(newOtp);
-        if (value && index < 3) inputsRef.current[index + 1]?.focus();
+        if (digits && index < 3) inputsRef.current[index + 1]?.focus();
     };
 
     const handleKeyDown = (e, index) => {
         if (e.key === 'Backspace' && !otp[index] && index > 0) {
             inputsRef.current[index - 1]?.focus();
         }
+    };
+
+    const handlePaste = (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 4);
+        if (!pasted) return;
+        const newOtp = new Array(4).fill('');
+        for (let i = 0; i < pasted.length; i++) newOtp[i] = pasted[i];
+        setOtp(newOtp);
+        inputsRef.current[Math.min(pasted.length, 3)]?.focus();
     };
 
     const handleVerifyClick = () => {
@@ -86,6 +95,7 @@ const OtpModal = ({ onClose, onVerify, loading }) => {
                             value={digit}
                             onChange={e => handleChange(e, i)}
                             onKeyDown={e => handleKeyDown(e, i)}
+                            onPaste={handlePaste}
                             className="w-16 h-20 text-center text-4xl font-black border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-brand-100 focus:border-brand-500 bg-gray-50 text-gray-900 outline-none transition-all"
                         />
                     ))}
@@ -115,7 +125,7 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
 
             const userData = userSnapshot.val();
 
-            if (userData.otp == enteredOtp) {
+            if (String(userData.otp ?? '').trim() === String(enteredOtp).trim()) {
                 toast.success("OTP Verified! Opening order...");
                 navigate(`/process/${otpModalOrder.id}`, {
                     state: { assignment: otpModalOrder, bypassOtp: true }

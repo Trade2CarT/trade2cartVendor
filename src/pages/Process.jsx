@@ -182,8 +182,9 @@ const Process = () => {
     };
 
     const handleAddCustom = () => {
-        if (!customName.trim() || !customRate.trim()) return toast.error("Please enter a name and price.");
-        const rateVal = parseFloat(customRate) || 0;
+        if (!customName.trim()) return toast.error("Please enter an item name.");
+        const rateVal = parseFloat(customRate);
+        if (!Number.isFinite(rateVal) || rateVal <= 0) return toast.error("Please enter a valid price greater than 0.");
         const uid = `custom-${Date.now()}`;
         const newItem = {
             id: uid,
