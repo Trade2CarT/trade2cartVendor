@@ -194,15 +194,17 @@ function App() {
 
                     <Route element={<ProtectedRoute installPrompt={installPrompt} handleSignOut={handleSignOut} />}>
                         <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/process/:assignmentId" element={<Process />} />
                         <Route path="/history" element={<HistoryPage />} />
                         <Route path="/account" element={<AccountPage />} />
-                        <Route path="/billing/:assignmentId" element={<BillingPage />} />
                     </Route>
 
+                    {/* Task flows: own header + own action footer, so NO app header/bottom-nav
+                        (otherwise the bottom nav overlaps the 'Continue to Billing' / 'Pay' button). */}
                     <Route element={<ProtectedRoute installPrompt={installPrompt} hasLayout={false} />}>
                         <Route path="/register" element={<RegisterForm />} />
                         <Route path="/pending" element={<PendingPage />} />
+                        <Route path="/process/:assignmentId" element={<Process />} />
+                        <Route path="/billing/:assignmentId" element={<BillingPage />} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/" replace />} />
