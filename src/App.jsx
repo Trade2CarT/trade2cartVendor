@@ -2,7 +2,7 @@ import React, { useState, useEffect, createContext, useContext, useMemo } from '
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue } from 'firebase/database';
 import { auth, db } from './firebase.js';
 import BillingPage from './pages/BillingPage.jsx';
 import Header from './components/Header.jsx';
@@ -89,41 +89,46 @@ const BottomNav = () => {
 };
 
 const ProtectedRoute = ({ handleSignOut, hasLayout = true, installPrompt }) => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [vendor, setVendor] = useState(null);
-    const [loading, setLoading] = useState(true);
+    // authState: 'loading' | 'auth' | 'unauth'
+    const [authState, setAuthState] = useState('loading');
+    // vendor: undefined = not loaded yet, null = confirmed no record, object = exists
+    const [vendor, setVendor] = useState(undefined);
     const location = useLocation();
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                setIsAuthenticated(true);
-                try {
-                    const vendorRef = ref(db, `vendors/${user.uid}`);
-                    const snapshot = await get(vendorRef);
-                    if (snapshot.exists()) setVendor(snapshot.val());
-                } catch (error) {
-                    console.error("Vendor fetch error:", error);
-                }
-            } else {
-                setIsAuthenticated(false);
+        let unsubDb = null;
+        const unsubAuth = onAuthStateChanged(auth, (user) => {
+            if (unsubDb) { unsubDb(); unsubDb = null; }
+            if (!user) {
+                setVendor(null);
+                setAuthState('unauth');
+                return;
             }
-            setLoading(false);
+            setAuthState('auth');
+            setVendor(undefined); // reset to "unknown" until the read resolves
+            const vendorRef = ref(db, `vendors/${user.uid}`);
+            // Realtime so an approval/rejection reflects instantly, and so a
+            // transient read never gets mistaken for "vendor doesn't exist".
+            unsubDb = onValue(
+                vendorRef,
+                (snapshot) => setVendor(snapshot.exists() ? snapshot.val() : null),
+                (error) => { console.error("Vendor read failed:", error); /* keep state, don't force re-register */ }
+            );
         });
-        return () => unsubscribe();
+        return () => { if (unsubDb) unsubDb(); unsubAuth(); };
     }, []);
 
     const contextValue = useMemo(() => ({ vendor, installPrompt }), [vendor, installPrompt]);
 
-    if (loading) return <Loader fullscreen />;
-    if (!isAuthenticated) return <Navigate to="/login" replace />;
+    // Wait until auth AND the vendor record have actually resolved.
+    if (authState === 'loading' || (authState === 'auth' && vendor === undefined)) return <Loader fullscreen />;
+    if (authState === 'unauth') return <Navigate to="/login" replace />;
 
-    if (!vendor) {
+    if (vendor === null) {
+        // Confirmed: no vendor record exists → must register.
         if (location.pathname !== '/register') return <Navigate to="/register" replace />;
-    } else {
-        if (vendor.status !== 'approved') {
-            if (location.pathname !== '/pending') return <Navigate to="/pending" replace />;
-        }
+    } else if (vendor.status !== 'approved') {
+        if (location.pathname !== '/pending') return <Navigate to="/pending" replace />;
     }
 
     return (
