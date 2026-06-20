@@ -14,13 +14,22 @@ const firebaseObjectToArray = (snapshot) => {
     return data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
 };
 
+// Compact Indian money: ₹30k, ₹5L, ₹1.2Cr — keeps big amounts from overflowing.
+const formatMoney = (n) => {
+    const num = Number(n) || 0;
+    if (num >= 1e7) return `₹${(num / 1e7).toFixed(num % 1e7 === 0 ? 0 : 1)}Cr`;
+    if (num >= 1e5) return `₹${(num / 1e5).toFixed(num % 1e5 === 0 ? 0 : 1)}L`;
+    if (num >= 1e3) return `₹${(num / 1e3).toFixed(num % 1e3 === 0 ? 0 : 1)}k`;
+    return `₹${num.toFixed(0)}`;
+};
+
 const StatCard = ({ icon, title, value, accent }) => (
-    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 min-w-0 overflow-hidden">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${accent}`}>
             {icon}
         </div>
-        <p className="text-2xl font-black text-gray-900 leading-none tabular-nums">{value}</p>
-        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mt-1.5">{title}</p>
+        <p className="text-xl sm:text-2xl font-black text-gray-900 leading-none tabular-nums truncate">{value}</p>
+        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mt-1.5 truncate">{title}</p>
     </div>
 );
 
@@ -148,7 +157,7 @@ const Dashboard = () => {
                 <div className="grid grid-cols-3 gap-3 mb-5">
                     <StatCard icon={<FaBoxOpen size={18} />} title="Pending" value={assignedOrders.length} accent="bg-brand-50 text-brand-600" />
                     <StatCard icon={<FaCheckDouble size={18} />} title="Done Today" value={completedTodayCount} accent="bg-green-50 text-green-600" />
-                    <StatCard icon={<FaRupeeSign size={18} />} title="Earned" value={`₹${totalEarningsToday.toFixed(0)}`} accent="bg-purple-50 text-purple-600" />
+                    <StatCard icon={<FaRupeeSign size={18} />} title="Earned" value={formatMoney(totalEarningsToday)} accent="bg-purple-50 text-purple-600" />
                 </div>
 
                 {/* Price CTA */}
