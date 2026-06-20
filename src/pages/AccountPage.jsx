@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, get, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, get, query, orderByChild, equalTo, push } from 'firebase/database';
 import { auth, db } from '../firebase';
 import SEO from '../components/SEO';
 import Loader from './Loader';
@@ -59,6 +59,29 @@ const AccountPage = () => {
     const [modalContent, setModalContent] = useState(null);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [openFaq, setOpenFaq] = useState(null);
+    const [queryText, setQueryText] = useState('');
+    const [submittingQuery, setSubmittingQuery] = useState(false);
+
+    const handleSubmitQuery = async () => {
+        if (queryText.trim().length < 5) return toast.error('Please describe your query.');
+        setSubmittingQuery(true);
+        try {
+            await push(ref(db, 'queries'), {
+                vendorId: vendor?.uid || auth.currentUser?.uid || null,
+                vendorName: vendor?.name || '',
+                vendorPhone: vendor?.phone || auth.currentUser?.phoneNumber || '',
+                message: queryText.trim(),
+                status: 'open',
+                createdAt: new Date().toISOString(),
+            });
+            toast.success('Query submitted! We\'ll get back to you within 24 hours.');
+            setQueryText('');
+        } catch {
+            toast.error('Could not submit. Please try again.');
+        } finally {
+            setSubmittingQuery(false);
+        }
+    };
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -136,20 +159,22 @@ const AccountPage = () => {
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 px-2">Help & Support</h3>
-                    <div className="space-y-2">
-                        <a
-                            href={`mailto:trade@trade2cart.in?subject=Vendor Query: ${vendor?.name} (${vendor?.phone})`}
-                            className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-                        >
-                            <div className="flex items-center gap-4">
-                                <FaPaperPlane className="text-xl text-brand-500" />
-                                <span>Raise a Query</span>
-                            </div>
-                            <FaChevronRight className="text-gray-400" />
-                        </a>
-                        <p className="text-xs text-gray-500 px-4">Your query will be addressed within 24 hours.</p>
-                    </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-3 px-2 flex items-center gap-2"><FaQuestionCircle className="text-brand-500" /> Raise a Query</h3>
+                    <textarea
+                        value={queryText}
+                        onChange={(e) => setQueryText(e.target.value)}
+                        placeholder="Describe your issue or question…"
+                        rows={3}
+                        className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-medium text-gray-800 focus:border-brand-500 focus:ring-0 outline-none resize-none transition-colors"
+                    />
+                    <button
+                        onClick={handleSubmitQuery}
+                        disabled={submittingQuery || queryText.trim().length < 5}
+                        className="mt-3 w-full flex items-center justify-center gap-2 py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 active:scale-[0.98] transition-all disabled:bg-gray-300"
+                    >
+                        <FaPaperPlane size={14} /> {submittingQuery ? 'Submitting…' : 'Submit Query'}
+                    </button>
+                    <p className="text-xs text-gray-500 px-1 mt-2">We'll address your query within 24 hours. You can also email <a href="mailto:trade@trade2cart.in" className="text-brand-600 font-bold">trade@trade2cart.in</a>.</p>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">

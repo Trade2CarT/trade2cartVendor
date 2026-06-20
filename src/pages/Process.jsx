@@ -28,6 +28,8 @@ const Process = () => {
     const [assignment] = useState(initialAssignment);
     const [vendor, setVendor] = useState(null);
     const [customerProfile, setCustomerProfile] = useState(null);
+    const [customerEntries, setCustomerEntries] = useState([]); // items + photo the customer submitted
+    const [showPhoto, setShowPhoto] = useState(false);
 
     const [loading, setLoading] = useState(true);
     const [isOtpVerified, setIsOtpVerified] = useState(() => state?.otpVerified || state?.bypassOtp || false);
@@ -57,6 +59,7 @@ const Process = () => {
         }
         fetchVendorProfile();
         fetchCustomerData();
+        fetchCustomerEntries();
         fetchMasterItems();
     }, []);
 
@@ -88,6 +91,27 @@ const Process = () => {
             }
         } catch {
             console.error("Could not fetch customer data");
+        }
+    };
+
+    // Pull the items + photo the customer submitted at checkout (stored on wasteEntries).
+    const fetchCustomerEntries = async () => {
+        try {
+            const ids = assignment?.entryIds || [];
+            let entries = [];
+            if (ids.length) {
+                const snaps = await Promise.all(ids.map(id => get(ref(db, `wasteEntries/${id}`))));
+                entries = snaps.filter(s => s.exists()).map(s => ({ id: s.key, ...s.val() }));
+            } else {
+                // Fallback: scan by customer id / mobile if the assignment has no entryIds.
+                const snap = await get(ref(db, 'wasteEntries'));
+                const all = snap.val() || {};
+                entries = Object.keys(all).map(k => ({ id: k, ...all[k] }))
+                    .filter(e => e.userID === targetUserId || e.mobile === (assignment?.mobile));
+            }
+            setCustomerEntries(entries);
+        } catch {
+            console.error("Could not fetch customer entries");
         }
     };
 
@@ -251,8 +275,9 @@ const Process = () => {
         : masterItems;
 
     const displayUserName = customerProfile?.name || assignment.userName || "Customer";
-    const displayUserPhone = customerProfile?.phone || assignment.userMobile || "N/A";
-    const displayUserAddress = customerProfile?.address || assignment.userAddress || "Address not provided";
+    const displayUserPhone = customerProfile?.phone || customerProfile?.phoneNumber || assignment.mobile || assignment.userMobile || "N/A";
+    const displayUserAddress = customerProfile?.address || customerEntries[0]?.address || assignment.userAddress || "Address not provided";
+    const customerPhoto = customerEntries.find(e => e.image)?.image;
     const billTotal = billItems.reduce((sum, item) => sum + (item.total || 0), 0);
 
     return (
@@ -294,6 +319,33 @@ const Process = () => {
                         <span>{displayUserAddress}</span>
                     </div>
                 </div>
+
+                {/* What the customer submitted: requested items + photo */}
+                {(customerEntries.length > 0 || customerPhoto) && (
+                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-3">Customer's Request</p>
+                        {customerEntries.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {customerEntries.map(e => (
+                                    <span key={e.id} className="bg-brand-50 text-brand-700 border border-brand-200 text-xs font-bold px-3 py-1.5 rounded-full capitalize">
+                                        {e.name} · {e.quantity} {e.unit}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        {customerPhoto && (
+                            <div className="mt-4">
+                                <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-2">Photo from customer</p>
+                                <img
+                                    src={customerPhoto}
+                                    alt="Customer scrap"
+                                    onClick={() => setShowPhoto(true)}
+                                    className="w-full max-h-60 object-contain rounded-xl border border-gray-200 bg-gray-50 cursor-zoom-in"
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* OTP gate or weighing */}
                 {!isOtpVerified ? (
@@ -404,6 +456,13 @@ const Process = () => {
             )}
 
             {/* Custom item modal */}
+            {showPhoto && customerPhoto && (
+                <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4" onClick={() => setShowPhoto(false)}>
+                    <img src={customerPhoto} alt="Customer scrap" className="max-w-full max-h-[90vh] rounded-xl" onClick={(e) => e.stopPropagation()} />
+                    <button onClick={() => setShowPhoto(false)} className="absolute top-5 right-5 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center text-gray-900"><FaTimes /></button>
+                </div>
+            )}
+
             {showCustomModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-end sm:items-center justify-center z-50 p-4 pb-10">
                     <div className="bg-white p-6 rounded-3xl shadow-2xl w-full max-w-sm relative animate-slide-up">
