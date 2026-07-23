@@ -68,6 +68,7 @@ const BillingPage = () => {
                 promises.push(update(ref(db, `wasteEntries/${entryKey}`), {
                     ...item,
                     status: "Processed",
+                    isAssigned: true, // keep completed records out of the admin's re-assign pool
                     finalWeight,
                     finalRate: itemRate,
                     finalTotal: finalWeight * itemRate,
@@ -119,6 +120,20 @@ const BillingPage = () => {
             }));
 
             await Promise.all(promises);
+
+            // 🚨 Email the admin that the order was completed (fire-and-forget).
+            fetch('https://trade2cart.trade.admin.trade2cart.in/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'completed',
+                    customerName: assignment?.userName || assignment?.mobile || 'Customer',
+                    customerPhone: assignment?.userMobile || assignment?.mobile || 'N/A',
+                    vendorName: assignment?.vendorName || 'N/A',
+                    total: Number(totalAmount).toFixed(2),
+                    items: selectedItems.map((i) => i.name || i.text).join(', '),
+                }),
+            }).catch(() => console.log('Completion email triggered in background.'));
 
             sessionStorage.removeItem(`cart_${targetAssignmentId}`);
 
