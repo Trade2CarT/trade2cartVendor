@@ -65,15 +65,37 @@ const AccountPage = () => {
     const handleSubmitQuery = async () => {
         if (queryText.trim().length < 5) return toast.error('Please describe your query.');
         setSubmittingQuery(true);
+        const name = vendor?.name || '';
+        const phone = vendor?.phone || auth.currentUser?.phoneNumber || '';
+        const message = queryText.trim();
         try {
             await push(ref(db, 'queries'), {
+                role: 'vendor',
+                name,
+                phone,
+                uid: vendor?.uid || auth.currentUser?.uid || null,
+                // Legacy fields kept for backward-compatibility with older records.
                 vendorId: vendor?.uid || auth.currentUser?.uid || null,
-                vendorName: vendor?.name || '',
-                vendorPhone: vendor?.phone || auth.currentUser?.phoneNumber || '',
-                message: queryText.trim(),
+                vendorName: name,
+                vendorPhone: phone,
+                message,
                 status: 'open',
                 createdAt: new Date().toISOString(),
             });
+
+            // 🚨 Email the admin that a concern was raised (fire-and-forget).
+            fetch('https://trade2cart.trade.admin.trade2cart.in/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'concern',
+                    role: 'vendor',
+                    customerName: name,
+                    customerPhone: phone,
+                    message,
+                }),
+            }).catch(() => console.log('Concern email triggered in background.'));
+
             toast.success('Query submitted! We\'ll get back to you within 24 hours.');
             setQueryText('');
         } catch {
