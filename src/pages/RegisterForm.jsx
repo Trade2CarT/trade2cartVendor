@@ -79,10 +79,21 @@ const RegisterForm = () => {
     useEffect(() => {
         const fetchLocations = async () => {
             try {
-                const snapshot = await get(dbRef(db, 'locations'));
+                // Locations are derived from the `location` field on each item in
+                // the `items` node (same source the admin/user apps read), so the
+                // dropdown always matches the cities that actually have items.
+                const snapshot = await get(dbRef(db, 'items'));
                 if (snapshot.exists()) {
-                    setLocations(snapshot.val());
-                    if (snapshot.val().length > 0) setFormData(prev => ({ ...prev, location: snapshot.val()[0] }));
+                    const uniqueLocations = [
+                        ...new Set(
+                            Object.values(snapshot.val())
+                                .map((item) => item?.location)
+                                .filter((loc) => typeof loc === 'string' && loc.trim())
+                                .map((loc) => loc.trim())
+                        ),
+                    ].sort((a, b) => a.localeCompare(b));
+                    setLocations(uniqueLocations);
+                    if (uniqueLocations.length > 0) setFormData(prev => ({ ...prev, location: uniqueLocations[0] }));
                 }
             } catch { toast.error("Error fetching locations."); }
             finally { setIsFetching(false); }
