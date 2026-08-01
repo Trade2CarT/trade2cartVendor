@@ -103,6 +103,7 @@ const BillingPage = () => {
                 assignmentID: targetAssignmentId,
                 userID: targetUserId,
                 vendorID: vendorId,
+                mobile: assignment.userMobile || assignment.mobile || "",
                 totalBill: totalAmount,
                 createdAt: timestamp,
                 billItems: selectedItems.map((item) => {
