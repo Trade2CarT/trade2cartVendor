@@ -12,8 +12,7 @@ export const TermsAndConditions = () => (
         <h2 className="text-2xl font-bold mb-4 text-gray-800">Trade2Cart Vendor Terms & Conditions</h2>
         <PolicyWrapper>
             <p><strong>Effective Date:</strong> 01 October 2025</p>
-            <p><strong>Trial Period:</strong> 01 October 2025 – 30 November 2025 (extendable only until 31 December 2025)</p>
-            <p><strong>Last Updated:</strong> 08 September 2025</p>
+            <p><strong>Last Updated:</strong> 01 August 2026</p>
             <p>These Terms & Conditions (“Terms”) govern the participation of vendors (“Vendor”, “You”) in the Trade2Cart Platform (“Platform”, “We”, “Us”, “Our”). By registering as a vendor and accepting assignments, you agree to comply with these Terms.</p>
 
             <h3>1. Role of Trade2Cart</h3>
@@ -45,13 +44,11 @@ export const TermsAndConditions = () => (
                 <li>Trade2Cart may suspend or terminate vendor access for non-payment of service fees.</li>
             </ul>
 
-            <h3>5. Free Trial Period (Launch Offer)</h3>
+            <h3>5. Launch Trial Period (Concluded)</h3>
             <ul>
-                <li>A free trial period is offered only during platform launch.</li>
-                <li>Trial Period: 01 October 2025 – 30 November 2025.</li>
-                <li>Extension (if announced): maximum till 31 December 2025.</li>
-                <li>After 31 December 2025, all vendors, old or new, will be required to pay commission/service fees.</li>
-                <li>This free trial is not available for future vendors who join after the above dates.</li>
+                <li>A free trial was offered only during platform launch (01 October 2025 – 31 December 2025) and has ended.</li>
+                <li>All vendors, old or new, are now required to pay the commission/service fee described in Section 8.</li>
+                <li>No free trial is available for vendors joining after the launch period. Any future waiver or promotional offer is at Trade2Cart's sole discretion and does not create an ongoing entitlement.</li>
             </ul>
 
             <h3>6. Vendor Obligations</h3>
@@ -71,11 +68,14 @@ export const TermsAndConditions = () => (
                 <li>Share user data for unauthorized purposes.</li>
             </ul>
 
-            <h3>8. Commission & Fees (Post-Trial)</h3>
+            <h3>8. Commission & Fees</h3>
             <ul>
-                <li>From 01 December 2025 (or 01 January 2026 if extended), Trade2Cart will charge a service/commission fee per order.</li>
-                <li>Fee structure will be communicated in advance and updated from time to time.</li>
-                <li>Failure to pay commission will result in suspension of vendor account.</li>
+                <li>Trade2Cart charges a platform service fee of <strong>₹50 (Rupees Fifty) per completed order</strong>, plus GST at the applicable rate (currently 18%), i.e., <strong>₹59 per completed order</strong> in total.</li>
+                <li>The fee applies only to completed pickups. Orders that are cancelled, reassigned, or not completed are not charged.</li>
+                <li>If the Government of India revises the applicable GST rate, the revised rate applies automatically from its effective date without requiring an amendment to these Terms.</li>
+                <li>Accrued fees are payable when Trade2Cart requests settlement. Trade2Cart maintains the authoritative record of each vendor's completed orders and dues on the Platform.</li>
+                <li>Trade2Cart may revise the base fee from time to time with prior notice via app, email, or WhatsApp; continued acceptance of orders after such notice constitutes acceptance of the revised fee.</li>
+                <li>Failure to settle dues may result in withholding of new order assignments and suspension or termination of the vendor account (see Sections 4 and 9).</li>
             </ul>
 
             <h3>9. Suspension & Termination</h3>
@@ -103,7 +103,7 @@ export const TermsAndConditions = () => (
             <ul>
                 <li>Any disputes between users and vendors must be resolved directly.</li>
                 <li>Trade2Cart may provide mediation support but holds no liability.</li>
-                <li>For vendor-platform disputes, the matter will be subject to [Your City/State] jurisdiction.</li>
+                <li>For vendor-platform disputes, the matter will be subject to the exclusive jurisdiction of the courts at Arakkonam, Tamil Nadu, India.</li>
             </ul>
 
             <h3>13. Amendments</h3>
