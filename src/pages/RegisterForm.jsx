@@ -123,6 +123,27 @@ const RegisterForm = () => {
         setFormErrors(prev => ({ ...prev, [key]: '' })); // Clear error on file select
     };
 
+    // Shrink a photo in the browser before upload. Documents (Aadhaar/PAN) get
+    // a gentler setting than the profile photo so their text stays readable.
+    // Falls back to the original file on any error or if compression grows it.
+    const compressImage = (file, maxDim, quality) => new Promise((resolve) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(url);
+                resolve(blob && blob.size < file.size ? blob : file);
+            }, 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+
     // STRICT VALIDATION FOR NEXT STEP
     const nextStep = () => {
         let valid = true;
@@ -181,18 +202,21 @@ const RegisterForm = () => {
 
         try {
             // Updated to use "URL" at the end of the keys so it maps correctly to the Header/Dashboard
+            // Documents keep higher fidelity (1600px @ 85%) so Aadhaar/PAN text
+            // stays readable for verification; profile photo shrinks harder.
             const filesToUpload = [
-                { key: 'profilePhotoURL', file: files.profilePhoto },
-                { key: 'aadhaarPhotoURL', file: files.aadhaarPhoto },
-                { key: 'panPhotoURL', file: files.panPhoto },
+                { key: 'profilePhotoURL', file: files.profilePhoto, maxDim: 800, quality: 0.8 },
+                { key: 'aadhaarPhotoURL', file: files.aadhaarPhoto, maxDim: 1600, quality: 0.85 },
+                { key: 'panPhotoURL', file: files.panPhoto, maxDim: 1600, quality: 0.85 },
             ];
 
             const uploadedUrls = {};
             for (let i = 0; i < filesToUpload.length; i++) {
                 setLoaderText(`Uploading documents (${i + 1}/${filesToUpload.length})...`);
                 const item = filesToUpload[i];
-                const fileRef = storageRef(storage, `vendors/${user.uid}/${item.key}.${item.file.name.split('.').pop()}`);
-                await uploadBytes(fileRef, item.file);
+                const compressed = await compressImage(item.file, item.maxDim, item.quality);
+                const fileRef = storageRef(storage, `vendors/${user.uid}/${item.key}.jpg`);
+                await uploadBytes(fileRef, compressed, { contentType: 'image/jpeg' });
                 uploadedUrls[item.key] = await getDownloadURL(fileRef);
             }
 
