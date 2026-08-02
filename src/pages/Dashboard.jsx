@@ -8,6 +8,48 @@ import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
 import TradePriceModal from '../components/TradePriceModal';
 import { isAssigned, isCompleted, getOrderTime, isToday } from '../utils/orders';
+import { useLanguage } from '../context/LanguageContext.jsx';
+
+const STR = {
+    English: {
+        refreshing: 'Refreshing...',
+        welcomeBack: 'Welcome back,',
+        partner: 'Partner',
+        statPending: 'Pending',
+        statDoneToday: 'Done Today',
+        statEarned: 'Earned',
+        checkPrices: "Check Today's Prices",
+        tabAssigned: 'Assigned',
+        tabCompleted: 'Completed',
+        emptyAssignedTitle: 'All caught up!',
+        emptyAssignedDesc: 'No new assigned orders right now.',
+        emptyCompletedTitle: 'No completed orders',
+        emptyCompletedDesc: 'Finish an order to see it here.',
+        underReview: 'Profile Under Review',
+        rejected: 'Profile Rejected',
+        underReviewMsg: "We are verifying your documents. This usually takes 24-48 hours. We'll notify you once approved.",
+        rejectedMsg: 'Your profile could not be approved. Please contact support.'
+    },
+    Tamil: {
+        refreshing: 'புதுப்பிக்கிறது...',
+        welcomeBack: 'மீண்டும் வரவேற்கிறோம்,',
+        partner: 'நண்பரே',
+        statPending: 'நிலுவையில்',
+        statDoneToday: 'இன்று முடிந்தது',
+        statEarned: 'சம்பாதித்தது',
+        checkPrices: 'இன்றைய விலைகளை பார்க்கவும்',
+        tabAssigned: 'ஒதுக்கப்பட்டவை',
+        tabCompleted: 'முடிந்தவை',
+        emptyAssignedTitle: 'எல்லாம் முடிந்தது!',
+        emptyAssignedDesc: 'தற்போது புதிய ஆர்டர்கள் எதுவும் இல்லை.',
+        emptyCompletedTitle: 'முடிந்த ஆர்டர்கள் இல்லை',
+        emptyCompletedDesc: 'ஒரு ஆர்டரை முடித்தால் இங்கே காணலாம்.',
+        underReview: 'சுயவிவரம் சரிபார்ப்பில் உள்ளது',
+        rejected: 'சுயவிவரம் நிராகரிக்கப்பட்டது',
+        underReviewMsg: 'உங்கள் ஆவணங்களை சரிபார்த்து வருகிறோம். இது பொதுவாக 24-48 மணி நேரம் ஆகும். ஒப்புதல் கிடைத்ததும் உங்களுக்கு தெரிவிப்போம்.',
+        rejectedMsg: 'உங்கள் சுயவிவரத்தை ஒப்புதல் அளிக்க முடியவில்லை. ஆதரவு குழுவை தொடர்பு கொள்ளவும்.'
+    }
+};
 
 const firebaseObjectToArray = (snapshot) => {
     const data = snapshot.val();
@@ -56,6 +98,8 @@ const DashboardSkeleton = () => (
 
 const Dashboard = () => {
     const { vendor } = useVendor();
+    const { language } = useLanguage();
+    const t = STR[language] || STR.English;
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
     const [usersMap, setUsersMap] = useState({});
@@ -114,12 +158,10 @@ const Dashboard = () => {
                 <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full border border-gray-100">
                     <FaTasks className={`text-6xl mx-auto mb-6 ${isPending ? 'text-yellow-500' : 'text-red-500'}`} />
                     <h1 className={`text-2xl font-extrabold ${isPending ? 'text-gray-900' : 'text-red-800'}`}>
-                        {isPending ? 'Profile Under Review' : 'Profile Rejected'}
+                        {isPending ? t.underReview : t.rejected}
                     </h1>
                     <p className={`mt-3 font-medium ${isPending ? 'text-gray-600' : 'text-red-600'}`}>
-                        {isPending
-                            ? "We are verifying your documents. This usually takes 24-48 hours. We'll notify you once approved."
-                            : "Your profile could not be approved. Please contact support."}
+                        {isPending ? t.underReviewMsg : t.rejectedMsg}
                     </p>
                 </div>
             </div>
@@ -129,14 +171,14 @@ const Dashboard = () => {
     const completedToday = processedOrders.filter(o => isToday(getOrderTime(o)));
     const totalEarningsToday = completedToday.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
     const completedTodayCount = completedToday.length;
-    const firstName = (vendor?.name || 'Partner').split(' ')[0];
+    const firstName = (vendor?.name || t.partner).split(' ')[0];
 
     return (
         <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} className="min-h-screen bg-gray-50">
             <SEO title="Dashboard – Trade2Cart" />
             {isRefreshing && (
                 <div className="flex justify-center items-center p-3 text-brand-600 font-bold bg-brand-50 text-sm">
-                    <FaSyncAlt className="animate-spin mr-2" /> Refreshing...
+                    <FaSyncAlt className="animate-spin mr-2" /> {t.refreshing}
                 </div>
             )}
 
@@ -144,7 +186,7 @@ const Dashboard = () => {
                 {/* Greeting */}
                 <div className="flex justify-between items-center mb-6">
                     <div>
-                        <p className="text-sm font-semibold text-gray-500">Welcome back,</p>
+                        <p className="text-sm font-semibold text-gray-500">{t.welcomeBack}</p>
                         <h1 className="text-2xl font-black text-gray-900">{firstName} 👋</h1>
                     </div>
                     <button className="relative p-3 bg-white rounded-2xl shadow-sm border border-gray-100" aria-label="Notifications">
@@ -155,9 +197,9 @@ const Dashboard = () => {
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3 mb-5">
-                    <StatCard icon={<FaBoxOpen size={18} />} title="Pending" value={assignedOrders.length} accent="bg-brand-50 text-brand-600" />
-                    <StatCard icon={<FaCheckDouble size={18} />} title="Done Today" value={completedTodayCount} accent="bg-green-50 text-green-600" />
-                    <StatCard icon={<FaRupeeSign size={18} />} title="Earned" value={formatMoney(totalEarningsToday)} accent="bg-purple-50 text-purple-600" />
+                    <StatCard icon={<FaBoxOpen size={18} />} title={t.statPending} value={assignedOrders.length} accent="bg-brand-50 text-brand-600" />
+                    <StatCard icon={<FaCheckDouble size={18} />} title={t.statDoneToday} value={completedTodayCount} accent="bg-green-50 text-green-600" />
+                    <StatCard icon={<FaRupeeSign size={18} />} title={t.statEarned} value={formatMoney(totalEarningsToday)} accent="bg-purple-50 text-purple-600" />
                 </div>
 
                 {/* Price CTA */}
@@ -165,7 +207,7 @@ const Dashboard = () => {
                     onClick={() => setShowPriceModal(true)}
                     className="w-full flex items-center justify-center gap-2.5 py-4 mb-6 bg-gradient-to-r from-brand-500 to-brand-600 text-white font-extrabold text-base rounded-2xl shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
                 >
-                    <FaTag /> Check Today's Prices
+                    <FaTag /> {t.checkPrices}
                 </button>
 
                 {/* Orders */}
@@ -175,13 +217,13 @@ const Dashboard = () => {
                             onClick={() => setActiveTab('assigned')}
                             className={`flex-1 py-2.5 rounded-xl font-extrabold text-sm transition-all ${activeTab === 'assigned' ? 'bg-white text-brand-700 shadow-sm' : 'text-gray-500'}`}
                         >
-                            Assigned ({assignedOrders.length})
+                            {t.tabAssigned} ({assignedOrders.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('processed')}
                             className={`flex-1 py-2.5 rounded-xl font-extrabold text-sm transition-all ${activeTab === 'processed' ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}
                         >
-                            Completed ({processedOrders.length})
+                            {t.tabCompleted} ({processedOrders.length})
                         </button>
                     </div>
 
@@ -189,11 +231,11 @@ const Dashboard = () => {
                         {activeTab === 'assigned' ? (
                             assignedOrders.length > 0
                                 ? <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} />
-                                : <EmptyState title="All caught up!" description="No new assigned orders right now." />
+                                : <EmptyState title={t.emptyAssignedTitle} description={t.emptyAssignedDesc} />
                         ) : (
                             processedOrders.length > 0
                                 ? <ProcessedOrders processedOrders={processedOrders} usersMap={usersMap} />
-                                : <EmptyState title="No completed orders" description="Finish an order to see it here." />
+                                : <EmptyState title={t.emptyCompletedTitle} description={t.emptyCompletedDesc} />
                         )}
                     </div>
                 </div>

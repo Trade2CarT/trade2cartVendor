@@ -8,12 +8,44 @@ import {
     FaUser,
     FaCheckCircle
 } from "react-icons/fa";
+import { useLanguage } from "../context/LanguageContext.jsx";
+
+const STR = {
+    English: {
+        toastDataLost: "Billing data lost. Please select the order again.",
+        toastTradeSuccess: "Trade completed successfully! 🎉",
+        toastTradeFail: "Failed to complete trade. Check connection.",
+        order: "Order",
+        finalInvoice: "Final Invoice",
+        customer: "Customer",
+        customerFallback: "Customer",
+        scrapDetails: "Scrap Details",
+        amountToPay: "Amount to Pay",
+        collectNote: (amount) => `Collect ₹${amount} in cash from the customer before completing.`,
+        payComplete: "Pay & Complete Order"
+    },
+    Tamil: {
+        toastDataLost: "பில்லிங் தகவல் இழக்கப்பட்டது. ஆர்டரை மீண்டும் தேர்வு செய்யவும்.",
+        toastTradeSuccess: "வர்த்தகம் வெற்றிகரமாக முடிந்தது! 🎉",
+        toastTradeFail: "வர்த்தகத்தை முடிக்க முடியவில்லை. இணைய இணைப்பை சரிபார்க்கவும்.",
+        order: "ஆர்டர்",
+        finalInvoice: "இறுதி பில்",
+        customer: "வாடிக்கையாளர்",
+        customerFallback: "வாடிக்கையாளர்",
+        scrapDetails: "பொருள் விவரங்கள்",
+        amountToPay: "செலுத்த வேண்டிய தொகை",
+        collectNote: (amount) => `ஆர்டரை முடிக்கும் முன் வாடிக்கையாளரிடம் ₹${amount} பணமாக பெற்றுக் கொள்ளுங்கள்.`,
+        payComplete: "பணம் கொடுத்து ஆர்டரை முடிக்கவும்"
+    }
+};
 
 const BillingPage = () => {
     const { assignmentId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
     const db = getDatabase();
+    const { language } = useLanguage();
+    const t = STR[language] || STR.English;
 
     const { assignment, selectedItems, weights, prices } = location.state || {};
 
@@ -33,7 +65,7 @@ const BillingPage = () => {
 
     useEffect(() => {
         if (!assignment || !selectedItems || selectedItems.length === 0) {
-            toast.error("Billing data lost. Please select the order again.");
+            toast.error(t.toastDataLost);
             navigate(-1);
         }
     }, [assignment, selectedItems, navigate]);
@@ -138,10 +170,10 @@ const BillingPage = () => {
 
             sessionStorage.removeItem(`cart_${targetAssignmentId}`);
 
-            toast.success("Trade completed successfully! 🎉");
+            toast.success(t.toastTradeSuccess);
             setTimeout(() => navigate("/dashboard", { replace: true }), 1200);
         } catch {
-            toast.error("Failed to complete trade. Check connection.");
+            toast.error(t.toastTradeFail);
             setIsProcessing(false);
         }
     };
@@ -161,8 +193,8 @@ const BillingPage = () => {
                         <FaArrowLeft />
                     </button>
                     <div>
-                        <p className="text-white/50 text-[11px] uppercase tracking-[0.2em] font-bold">Order #{assignmentId.substring(0, 8)}</p>
-                        <h1 className="text-2xl font-black tracking-tight">Final Invoice</h1>
+                        <p className="text-white/50 text-[11px] uppercase tracking-[0.2em] font-bold">{t.order} #{assignmentId.substring(0, 8)}</p>
+                        <h1 className="text-2xl font-black tracking-tight">{t.finalInvoice}</h1>
                     </div>
                 </div>
             </header>
@@ -174,15 +206,15 @@ const BillingPage = () => {
                         <FaUser size={18} />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Customer</p>
-                        <p className="font-black text-gray-900 text-lg truncate">{assignment.userName || "Customer"}</p>
+                        <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">{t.customer}</p>
+                        <p className="font-black text-gray-900 text-lg truncate">{assignment.userName || t.customerFallback}</p>
                     </div>
                 </div>
 
                 {/* Itemized bill */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-[12px] font-black uppercase tracking-widest text-gray-500">Scrap Details</h2>
+                        <h2 className="text-[12px] font-black uppercase tracking-widest text-gray-500">{t.scrapDetails}</h2>
                     </div>
 
                     <div className="divide-y divide-gray-50">
@@ -208,7 +240,7 @@ const BillingPage = () => {
 
                     <div className="bg-gradient-to-br from-green-500 to-brand-600 px-6 py-6 flex justify-between items-center">
                         <div>
-                            <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">Amount to Pay</p>
+                            <p className="text-[11px] font-bold text-white/80 uppercase tracking-widest">{t.amountToPay}</p>
                             <p className="font-black text-4xl text-white mt-1 tabular-nums">₹{totalAmount.toFixed(2)}</p>
                         </div>
                         <FaCheckCircle className="text-white/40 text-5xl" />
@@ -216,7 +248,7 @@ const BillingPage = () => {
                 </div>
 
                 <p className="text-center text-xs text-gray-400 font-medium px-6 pt-1">
-                    Collect ₹{totalAmount.toFixed(2)} in cash from the customer before completing.
+                    {t.collectNote(totalAmount.toFixed(2))}
                 </p>
             </main>
 
@@ -231,7 +263,7 @@ const BillingPage = () => {
                         {isProcessing ? (
                             <div className="w-6 h-6 border-[3px] border-white border-t-transparent rounded-full animate-spin"></div>
                         ) : (
-                            <><FaFileInvoiceDollar /> Pay &amp; Complete Order</>
+                            <><FaFileInvoiceDollar /> {t.payComplete}</>
                         )}
                     </button>
                 </div>

@@ -8,6 +8,7 @@ import SEO from '../components/SEO';
 import Loader from './Loader';
 import PolicyModal from '../components/PolicyModal';
 import { TermsAndConditions, PrivacyPolicy } from '../components/Agreement';
+import { useLanguage } from '../context/LanguageContext.jsx';
 import {
     FaSignOutAlt,
     FaUserCircle,
@@ -20,40 +21,115 @@ import {
     FaMapMarkerAlt,
     FaIdCard,
     FaQuestionCircle,
-    FaPaperPlane
+    FaPaperPlane,
+    FaGlobe
 } from 'react-icons/fa';
 
-const InfoCard = ({ icon, label, value }) => (
+const STR = {
+    English: {
+        notProvided: 'Not Provided',
+        vendorProfile: 'Vendor Profile',
+        fullName: 'Full Name',
+        registeredLocation: 'Registered Location',
+        fullAddress: 'Full Address',
+        panNumber: 'PAN Number',
+        aadhaarNumber: 'Aadhaar Number',
+        drivingLicense: 'Driving License',
+        language: 'Language / மொழி',
+        raiseQuery: 'Raise a Query',
+        queryPlaceholder: 'Describe your issue or question…',
+        submitting: 'Submitting…',
+        submitQuery: 'Submit Query',
+        queryNote1: "We'll address your query within 24 hours. You can also email ",
+        queryNote2: '.',
+        faqTitle: 'Frequently Asked Questions',
+        privacyPolicy: 'Privacy Policy',
+        termsOfService: 'Terms of Service',
+        logout: 'Logout',
+        toastDescribeQuery: 'Please describe your query.',
+        toastQuerySuccess: "Query submitted! We'll get back to you within 24 hours.",
+        toastQueryFail: 'Could not submit. Please try again.',
+        toastProfileFail: 'Could not fetch profile. Check console for details.',
+        toastSignOutFail: 'Failed to sign out.',
+        faqs: [
+            {
+                q: 'How do I get new orders?',
+                a: 'New orders are assigned to you by our admin team based on your location and availability. Keep an eye on the "Assigned Orders" tab on your dashboard.'
+            },
+            {
+                q: 'When will I receive payment for orders?',
+                a: 'You are responsible for collecting payment directly from the customer at the time of pickup. Trade2Cart does not handle transactions between you and the customer.'
+            },
+            {
+                q: 'What if the customer provides an incorrect OTP?',
+                a: 'Please double-check the OTP with the customer from their app. If it still fails, you can contact our support team for assistance.'
+            },
+            {
+                q: 'How are the scrap prices determined?',
+                a: 'You can view the current trade prices for your registered location by tapping the "Today\'s Trade Price" button on your dashboard.'
+            }
+        ]
+    },
+    Tamil: {
+        notProvided: 'வழங்கப்படவில்லை',
+        vendorProfile: 'விற்பனையாளர் சுயவிவரம்',
+        fullName: 'முழு பெயர்',
+        registeredLocation: 'பதிவு செய்த இடம்',
+        fullAddress: 'முழு முகவரி',
+        panNumber: 'PAN எண்',
+        aadhaarNumber: 'ஆதார் எண்',
+        drivingLicense: 'ஓட்டுநர் உரிமம்',
+        language: 'மொழி / Language',
+        raiseQuery: 'கேள்வி எழுப்புங்கள்',
+        queryPlaceholder: 'உங்கள் பிரச்சனை அல்லது கேள்வியை எழுதுங்கள்…',
+        submitting: 'அனுப்புகிறது…',
+        submitQuery: 'கேள்வியை அனுப்பவும்',
+        queryNote1: '24 மணி நேரத்திற்குள் உங்கள் கேள்விக்கு பதில் அளிப்போம். மின்னஞ்சல் மூலமாகவும் தொடர்பு கொள்ளலாம்: ',
+        queryNote2: '',
+        faqTitle: 'அடிக்கடி கேட்கப்படும் கேள்விகள்',
+        privacyPolicy: 'தனியுரிமைக் கொள்கை',
+        termsOfService: 'சேவை விதிமுறைகள்',
+        logout: 'வெளியேறு',
+        toastDescribeQuery: 'உங்கள் கேள்வியை எழுதுங்கள்.',
+        toastQuerySuccess: 'கேள்வி அனுப்பப்பட்டது! 24 மணி நேரத்திற்குள் பதில் அளிப்போம்.',
+        toastQueryFail: 'அனுப்ப முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+        toastProfileFail: 'சுயவிவரத்தை பெற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+        toastSignOutFail: 'வெளியேற முடியவில்லை.',
+        faqs: [
+            {
+                q: 'புதிய ஆர்டர்கள் எப்படி கிடைக்கும்?',
+                a: 'உங்கள் இடம் மற்றும் கிடைக்கும் நிலையின் அடிப்படையில் எங்கள் நிர்வாகக் குழு புதிய ஆர்டர்களை உங்களுக்கு ஒதுக்கும். டாஷ்போர்டில் உள்ள "ஒதுக்கப்பட்டவை" பகுதியை தொடர்ந்து பார்த்துக் கொள்ளுங்கள்.'
+            },
+            {
+                q: 'ஆர்டர்களுக்கான பணம் எப்போது கிடைக்கும்?',
+                a: 'பிக்அப் நேரத்தில் வாடிக்கையாளரிடமிருந்து நேரடியாக பணம் பெறுவது உங்கள் பொறுப்பு. உங்களுக்கும் வாடிக்கையாளருக்கும் இடையிலான பண பரிவர்த்தனையை Trade2Cart கையாளாது.'
+            },
+            {
+                q: 'வாடிக்கையாளர் தவறான OTP கொடுத்தால் என்ன செய்வது?',
+                a: 'வாடிக்கையாளரின் ஆப்பில் உள்ள OTP-ஐ மீண்டும் சரிபார்க்கவும். அப்போதும் தவறாக இருந்தால், உதவிக்கு எங்கள் ஆதரவு குழுவை தொடர்பு கொள்ளலாம்.'
+            },
+            {
+                q: 'பழைய பொருட்களின் விலை எப்படி நிர்ணயிக்கப்படுகிறது?',
+                a: 'டாஷ்போர்டில் உள்ள "இன்றைய விலைகள்" பட்டனை அழுத்தி, நீங்கள் பதிவு செய்த இடத்திற்கான தற்போதைய விலைகளை பார்க்கலாம்.'
+            }
+        ]
+    }
+};
+
+const InfoCard = ({ icon, label, value, fallback }) => (
     <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
         <div className="text-gray-400 mt-1 text-lg">{icon}</div>
         <div>
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">{label}</p>
-            <p className="text-base text-gray-800 font-semibold break-words">{value || 'Not Provided'}</p>
+            <p className="text-base text-gray-800 font-semibold break-words">{value || fallback || 'Not Provided'}</p>
         </div>
     </div>
 );
 
-const faqs = [
-    {
-        q: 'How do I get new orders?',
-        a: 'New orders are assigned to you by our admin team based on your location and availability. Keep an eye on the "Assigned Orders" tab on your dashboard.'
-    },
-    {
-        q: 'When will I receive payment for orders?',
-        a: 'You are responsible for collecting payment directly from the customer at the time of pickup. Trade2Cart does not handle transactions between you and the customer.'
-    },
-    {
-        q: 'What if the customer provides an incorrect OTP?',
-        a: 'Please double-check the OTP with the customer from their app. If it still fails, you can contact our support team for assistance.'
-    },
-    {
-        q: 'How are the scrap prices determined?',
-        a: 'You can view the current trade prices for your registered location by tapping the "Today\'s Trade Price" button on your dashboard.'
-    }
-];
-
 const AccountPage = () => {
     const navigate = useNavigate();
+    const { language, setLanguage } = useLanguage();
+    const t = STR[language] || STR.English;
     const [vendor, setVendor] = useState(null);
     const [loading, setLoading] = useState(true);
     const [modalContent, setModalContent] = useState(null);
@@ -63,7 +139,7 @@ const AccountPage = () => {
     const [submittingQuery, setSubmittingQuery] = useState(false);
 
     const handleSubmitQuery = async () => {
-        if (queryText.trim().length < 5) return toast.error('Please describe your query.');
+        if (queryText.trim().length < 5) return toast.error(t.toastDescribeQuery);
         setSubmittingQuery(true);
         const name = vendor?.name || '';
         const phone = vendor?.phone || auth.currentUser?.phoneNumber || '';
@@ -96,10 +172,10 @@ const AccountPage = () => {
                 }),
             }).catch(() => console.log('Concern email triggered in background.'));
 
-            toast.success('Query submitted! We\'ll get back to you within 24 hours.');
+            toast.success(t.toastQuerySuccess);
             setQueryText('');
         } catch {
-            toast.error('Could not submit. Please try again.');
+            toast.error(t.toastQueryFail);
         } finally {
             setSubmittingQuery(false);
         }
@@ -119,7 +195,7 @@ const AccountPage = () => {
                     }
                 } catch (error) {
                     console.error("Firebase fetch error:", error);
-                    toast.error("Could not fetch profile. Check console for details.");
+                    toast.error(t.toastProfileFail);
                 } finally {
                     setLoading(false);
                 }
@@ -131,7 +207,7 @@ const AccountPage = () => {
     }, [navigate]);
 
     const handleSignOut = () => {
-        signOut(auth).catch((error) => toast.error("Failed to sign out."));
+        signOut(auth).catch((error) => toast.error(t.toastSignOutFail));
     };
 
     const toggleFaq = (index) => {
@@ -159,7 +235,7 @@ const AccountPage = () => {
                                 <FaUserCircle className="text-6xl text-gray-300" />
                             )}
                             <div>
-                                <h1 className="text-xl font-bold text-gray-800">{vendor?.name || "Vendor Profile"}</h1>
+                                <h1 className="text-xl font-bold text-gray-800">{vendor?.name || t.vendorProfile}</h1>
                                 <p className="text-sm text-gray-500">{vendor?.phone}</p>
                             </div>
                         </div>
@@ -169,23 +245,41 @@ const AccountPage = () => {
                     <div className={`transition-all duration-500 ease-in-out ${isProfileOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="p-4 border-t border-gray-100">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <InfoCard icon={<FaUser />} label="Full Name" value={vendor?.name} />
-                                <InfoCard icon={<FaMapPin />} label="Registered Location" value={vendor?.location} />
-                                <InfoCard icon={<FaMapMarkerAlt />} label="Full Address" value={vendor?.address} />
-                                <InfoCard icon={<FaIdCard />} label="PAN Number" value={vendor?.pan} />
-                                <InfoCard icon={<FaIdCard />} label="Aadhaar Number" value={vendor?.aadhaar} />
-                                <InfoCard icon={<FaIdCard />} label="Driving License" value={vendor?.license} />
+                                <InfoCard icon={<FaUser />} label={t.fullName} value={vendor?.name} fallback={t.notProvided} />
+                                <InfoCard icon={<FaMapPin />} label={t.registeredLocation} value={vendor?.location} fallback={t.notProvided} />
+                                <InfoCard icon={<FaMapMarkerAlt />} label={t.fullAddress} value={vendor?.address} fallback={t.notProvided} />
+                                <InfoCard icon={<FaIdCard />} label={t.panNumber} value={vendor?.pan} fallback={t.notProvided} />
+                                <InfoCard icon={<FaIdCard />} label={t.aadhaarNumber} value={vendor?.aadhaar} fallback={t.notProvided} />
+                                <InfoCard icon={<FaIdCard />} label={t.drivingLicense} value={vendor?.license} fallback={t.notProvided} />
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h3 className="text-lg font-bold text-gray-800 mb-3 px-2 flex items-center gap-2"><FaQuestionCircle className="text-brand-500" /> Raise a Query</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-3 px-2 flex items-center gap-2"><FaGlobe className="text-brand-500" /> {t.language}</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            onClick={() => setLanguage('English')}
+                            className={`py-3 rounded-xl font-bold border-2 transition-colors ${language === 'English' ? 'bg-brand-600 border-brand-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                        >
+                            English
+                        </button>
+                        <button
+                            onClick={() => setLanguage('Tamil')}
+                            className={`py-3 rounded-xl font-bold border-2 transition-colors ${language === 'Tamil' ? 'bg-brand-600 border-brand-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                        >
+                            தமிழ்
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl shadow-md">
+                    <h3 className="text-lg font-bold text-gray-800 mb-3 px-2 flex items-center gap-2"><FaQuestionCircle className="text-brand-500" /> {t.raiseQuery}</h3>
                     <textarea
                         value={queryText}
                         onChange={(e) => setQueryText(e.target.value)}
-                        placeholder="Describe your issue or question…"
+                        placeholder={t.queryPlaceholder}
                         rows={3}
                         className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-medium text-gray-800 focus:border-brand-500 focus:ring-0 outline-none resize-none transition-colors"
                     />
@@ -194,15 +288,15 @@ const AccountPage = () => {
                         disabled={submittingQuery || queryText.trim().length < 5}
                         className="mt-3 w-full flex items-center justify-center gap-2 py-3 bg-brand-600 text-white font-bold rounded-xl hover:bg-brand-700 active:scale-[0.98] transition-all disabled:bg-gray-300"
                     >
-                        <FaPaperPlane size={14} /> {submittingQuery ? 'Submitting…' : 'Submit Query'}
+                        <FaPaperPlane size={14} /> {submittingQuery ? t.submitting : t.submitQuery}
                     </button>
-                    <p className="text-xs text-gray-500 px-1 mt-2">We'll address your query within 24 hours. You can also email <a href="mailto:trade@trade2cart.in" className="text-brand-600 font-bold">trade@trade2cart.in</a>.</p>
+                    <p className="text-xs text-gray-500 px-1 mt-2">{t.queryNote1}<a href="mailto:trade@trade2cart.in" className="text-brand-600 font-bold">trade@trade2cart.in</a>{t.queryNote2}</p>
                 </div>
 
                 <div className="bg-white p-4 rounded-xl shadow-md">
-                    <h3 className="text-lg font-bold text-gray-800 mb-2 px-2">Frequently Asked Questions</h3>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2 px-2">{t.faqTitle}</h3>
                     <div className="space-y-2">
-                        {faqs.map((faq, index) => (
+                        {t.faqs.map((faq, index) => (
                             <div key={index} className="border-b border-gray-200 last:border-b-0">
                                 <button onClick={() => toggleFaq(index)} className="flex justify-between items-center w-full p-4 font-medium text-left text-gray-800 hover:bg-gray-50 rounded-lg transition-colors">
                                     <span>{faq.q}</span>
@@ -223,7 +317,7 @@ const AccountPage = () => {
                     >
                         <div className="flex items-center gap-4">
                             <FaShieldAlt className="text-xl text-green-500" />
-                            <span>Privacy Policy</span>
+                            <span>{t.privacyPolicy}</span>
                         </div>
                         <FaChevronRight className="text-gray-400" />
                     </button>
@@ -233,7 +327,7 @@ const AccountPage = () => {
                     >
                         <div className="flex items-center gap-4">
                             <FaFileContract className="text-xl text-brand-500" />
-                            <span>Terms of Service</span>
+                            <span>{t.termsOfService}</span>
                         </div>
                         <FaChevronRight className="text-gray-400" />
                     </button>
@@ -244,7 +338,7 @@ const AccountPage = () => {
                         onClick={handleSignOut}
                         className="w-full flex items-center justify-center gap-2 py-3 bg-red-600 text-white rounded-lg font-bold shadow-lg hover:bg-red-700 transition-colors"
                     >
-                        <FaSignOutAlt /> Logout
+                        <FaSignOutAlt /> {t.logout}
                     </button>
                 </div>
             </div>

@@ -17,6 +17,7 @@ import AccountPage from './pages/AccountPage.jsx';
 import PendingPage from './pages/PendingPage';
 import HistoryPage from './pages/HistoryPage.jsx';
 import { FaHome, FaUser, FaHistory } from 'react-icons/fa';
+import { LanguageProvider } from './context/LanguageContext.jsx';
 
 const VendorContext = createContext(null);
 export const useVendor = () => useContext(VendorContext);
@@ -181,7 +182,7 @@ function App() {
     };
 
     return (
-        <>
+        <LanguageProvider>
             <Toaster position="top-center" reverseOrder={false} />
             <Router>
                 <Routes>
@@ -210,7 +211,7 @@ function App() {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Router>
-        </>
+        </LanguageProvider>
     );
 }
 
