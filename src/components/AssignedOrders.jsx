@@ -3,7 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { ref, get } from 'firebase/database';
 import { db } from '../firebase';
-import { FaPhoneAlt, FaMapPin, FaRupeeSign, FaAngleDoubleRight, FaLocationArrow } from 'react-icons/fa';
+import { FaPhoneAlt, FaMapPin, FaRupeeSign, FaAngleDoubleRight, FaLocationArrow, FaRoute } from 'react-icons/fa';
+import { useLanguage } from '../context/LanguageContext.jsx';
+import { getPickup, directionsUrl, haversineKm, formatKm } from '../utils/location';
+
+const STR = {
+    English: {
+        call: 'Call',
+        directions: 'Directions',
+        noAddress: 'No address provided',
+        away: (d) => `${d} away`,
+    },
+    Tamil: {
+        call: 'அழை',
+        directions: 'வழி காட்டு',
+        noAddress: 'முகவரி வழங்கப்படவில்லை',
+        away: (d) => `${d} தொலைவில்`,
+    },
+};
 
 // --- Swipe to Process Action ---
 const SwipeButton = ({ onSwipeSuccess }) => {
@@ -111,8 +128,10 @@ const OtpModal = ({ onClose, onVerify, loading }) => {
     );
 };
 
-const AssignedOrders = ({ assignedOrders, usersMap }) => {
+const AssignedOrders = ({ assignedOrders, usersMap, entriesMap = {}, vendorPos }) => {
     const navigate = useNavigate();
+    const { language } = useLanguage();
+    const t = STR[language] || STR.English;
     const [otpModalOrder, setOtpModalOrder] = useState(null);
     const [verifyLoading, setVerifyLoading] = useState(false);
 
@@ -145,11 +164,26 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
         return <p className="text-center text-gray-500 py-8 font-bold">No new orders assigned.</p>;
     }
 
+    // Location comes from the order itself (see utils/location). When the
+    // vendor's position is known, nearest pickups come first; orders without
+    // GPS go last.
+    const rows = assignedOrders.map(order => {
+        const userProfile = usersMap[order.userId];
+        const pickup = getPickup(order, userProfile, entriesMap[order.entryIds?.[0]]);
+        const km = vendorPos && pickup.hasCoords ? haversineKm(vendorPos, pickup) : null;
+        return { order, userProfile, pickup, km };
+    });
+    if (vendorPos) {
+        rows.sort((a, b) => {
+            if (a.km === null || b.km === null) return (a.km === null) - (b.km === null);
+            return a.km - b.km;
+        });
+    }
+
     return (
         <div className="flex flex-col gap-3">
-            {assignedOrders.map(order => {
-                const userProfile = usersMap[order.userId];
-                const hasLocation = userProfile?.lastLat && userProfile?.lastLng;
+            {rows.map(({ order, userProfile, pickup, km }) => {
+                const navUrl = directionsUrl(pickup);
                 return (
                     <div key={order.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                         <div className="flex justify-between items-start gap-3 mb-3">
@@ -157,8 +191,13 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
                                 <h3 className="font-black text-lg text-gray-900 truncate">{userProfile?.name || 'N/A'}</h3>
                                 <p className="text-sm text-gray-500 mt-1 flex items-start gap-2 font-medium">
                                     <FaMapPin className="text-red-500 mt-0.5 flex-shrink-0" />
-                                    <span className="line-clamp-2">{userProfile?.address || 'No address provided'}</span>
+                                    <span className="line-clamp-2">{pickup.address || t.noAddress}</span>
                                 </p>
+                                {km !== null && (
+                                    <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-extrabold rounded-lg tabular-nums">
+                                        <FaRoute size={11} /> {t.away(formatKm(km))}
+                                    </span>
+                                )}
                             </div>
                             <div className="text-right flex-shrink-0">
                                 <span className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Est.</span>
@@ -170,16 +209,16 @@ const AssignedOrders = ({ assignedOrders, usersMap }) => {
 
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                             <a href={`tel:${order.mobile}`} className="inline-flex items-center gap-2 px-3.5 py-2 bg-brand-50 text-brand-700 font-bold text-sm rounded-xl transition-colors hover:bg-brand-100">
-                                <FaPhoneAlt size={13} /> Call
+                                <FaPhoneAlt size={13} /> {t.call}
                             </a>
-                            {hasLocation && (
+                            {navUrl && (
                                 <a
-                                    href={`https://www.google.com/maps/dir/?api=1&destination=${userProfile.lastLat},${userProfile.lastLng}`}
+                                    href={navUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 px-3.5 py-2 bg-green-50 text-green-700 font-bold text-sm rounded-xl transition-colors hover:bg-green-100"
                                 >
-                                    <FaLocationArrow size={13} /> Directions
+                                    <FaLocationArrow size={13} /> {t.directions}
                                 </a>
                             )}
                         </div>

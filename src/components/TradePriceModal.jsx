@@ -9,21 +9,27 @@ const TradePriceModal = ({ onClose, vendorLocation }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!vendorLocation) {
-            setLoading(false);
-            return;
-        };
-
         const itemsRef = ref(db, 'items');
         const unsubscribe = onValue(itemsRef, (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                const allItems = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-                const filteredItems = allItems.filter(item => item.location?.toLowerCase() === vendorLocation.toLowerCase());
-                setItems(filteredItems);
+            const allItems = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            const key = (vendorLocation || '').trim().toLowerCase();
+            const cityItems = key ? allItems.filter(item => item.location?.trim().toLowerCase() === key) : [];
+            if (cityItems.length) {
+                setItems(cityItems);
+            } else {
+                // Vendor's city has no price list yet — show reference prices,
+                // one row per item name.
+                const seen = new Set();
+                setItems(allItems.filter(item => {
+                    const name = (item.name || '').trim().toLowerCase();
+                    if (seen.has(name)) return false;
+                    seen.add(name);
+                    return true;
+                }));
             }
             setLoading(false);
-        });
+        }, () => setLoading(false));
 
         return () => unsubscribe();
     }, [vendorLocation]);

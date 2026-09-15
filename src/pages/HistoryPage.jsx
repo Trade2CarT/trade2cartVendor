@@ -6,12 +6,13 @@ import SEO from '../components/SEO';
 import ProcessedOrders from '../components/ProcessedOrders';
 import Loader from './Loader';
 import { isCompleted, getOrderTime } from '../utils/orders';
+import useOrderCustomers from '../hooks/useOrderCustomers';
 
 const HistoryPage = () => {
     const { vendor } = useVendor();
     const [processedOrders, setProcessedOrders] = useState([]);
-    const [usersMap, setUsersMap] = useState({});
     const [loading, setLoading] = useState(true);
+    const { usersMap } = useOrderCustomers(processedOrders);
 
     useEffect(() => {
         if (!vendor) return;
@@ -26,15 +27,7 @@ const HistoryPage = () => {
             setLoading(false);
         });
 
-        const usersRef = ref(db, 'users');
-        const unsubscribeUsers = onValue(usersRef, (snapshot) => {
-            setUsersMap(snapshot.val() || {});
-        });
-
-        return () => {
-            unsubscribeAssignments();
-            unsubscribeUsers();
-        };
+        return () => unsubscribeAssignments();
     }, [vendor]);
 
     if (loading) return <Loader fullscreen />;

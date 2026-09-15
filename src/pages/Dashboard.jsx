@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { db } from '../firebase';
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { useVendor } from '../App';
-import { FaBoxOpen, FaRupeeSign, FaCheckDouble, FaTag, FaBell, FaInbox, FaSyncAlt, FaTasks } from 'react-icons/fa';
+import { FaBoxOpen, FaRupeeSign, FaCheckDouble, FaTag, FaBell, FaInbox, FaSyncAlt, FaTasks, FaCrosshairs } from 'react-icons/fa';
+import useOrderCustomers from '../hooks/useOrderCustomers';
 import SEO from '../components/SEO';
 import AssignedOrders from '../components/AssignedOrders';
 import ProcessedOrders from '../components/ProcessedOrders';
@@ -21,6 +22,11 @@ const STR = {
         checkPrices: "Check Today's Prices",
         tabAssigned: 'Assigned',
         tabCompleted: 'Completed',
+        nearestFirst: 'Nearest pickup first',
+        locating: 'Finding your location…',
+        locationOff: 'Turn on location to see distance',
+        locateMe: 'Show distance',
+        refreshLocation: 'Refresh',
         emptyAssignedTitle: 'All caught up!',
         emptyAssignedDesc: 'No new assigned orders right now.',
         emptyCompletedTitle: 'No completed orders',
@@ -40,6 +46,11 @@ const STR = {
         checkPrices: 'இன்றைய விலைகளை பார்க்கவும்',
         tabAssigned: 'ஒதுக்கப்பட்டவை',
         tabCompleted: 'முடிந்தவை',
+        nearestFirst: 'அருகிலுள்ள பிக்கப் முதலில்',
+        locating: 'உங்கள் இருப்பிடம் கண்டறியப்படுகிறது…',
+        locationOff: 'தூரத்தைப் பார்க்க இருப்பிடத்தை இயக்கவும்',
+        locateMe: 'தூரத்தைக் காட்டு',
+        refreshLocation: 'புதுப்பி',
         emptyAssignedTitle: 'எல்லாம் முடிந்தது!',
         emptyAssignedDesc: 'தற்போது புதிய ஆர்டர்கள் எதுவும் இல்லை.',
         emptyCompletedTitle: 'முடிந்த ஆர்டர்கள் இல்லை',
@@ -102,8 +113,33 @@ const Dashboard = () => {
     const t = STR[language] || STR.English;
     const [assignedOrders, setAssignedOrders] = useState([]);
     const [processedOrders, setProcessedOrders] = useState([]);
-    const [usersMap, setUsersMap] = useState({});
     const [loading, setLoading] = useState(true);
+    const [vendorPos, setVendorPos] = useState(null);
+    const [geoState, setGeoState] = useState('idle'); // idle | locating | ok | off
+
+    const { usersMap, entriesMap } = useOrderCustomers(
+        [...assignedOrders, ...processedOrders],
+        { withEntries: true }
+    );
+
+    // Vendor's own position — used only on this screen for distance and
+    // nearest-first sorting, never written to Firebase.
+    const locateVendor = useCallback(() => {
+        if (!navigator.geolocation) return setGeoState('off');
+        setGeoState('locating');
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setVendorPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                setGeoState('ok');
+            },
+            () => setGeoState('off'),
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
+    }, []);
+
+    useEffect(() => {
+        if (assignedOrders.length > 0 && geoState === 'idle') locateVendor();
+    }, [assignedOrders.length, geoState, locateVendor]);
     const [activeTab, setActiveTab] = useState('assigned');
     const [showPriceModal, setShowPriceModal] = useState(false);
 
@@ -137,15 +173,7 @@ const Dashboard = () => {
             setLoading(false);
         }, () => setLoading(false));
 
-        const usersRef = ref(db, 'users');
-        const unsubscribeUsers = onValue(usersRef, (snapshot) => {
-            setUsersMap(snapshot.val() || {});
-        });
-
-        return () => {
-            unsubscribeAssignments();
-            unsubscribeUsers();
-        };
+        return () => unsubscribeAssignments();
     }, [vendor]);
 
     if (loading) return <DashboardSkeleton />;
@@ -230,7 +258,22 @@ const Dashboard = () => {
                     <div className="p-3">
                         {activeTab === 'assigned' ? (
                             assignedOrders.length > 0
-                                ? <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} />
+                                ? <>
+                                    <div className="flex items-center justify-between gap-2 px-1 pb-3 text-xs font-bold text-gray-500">
+                                        <span className="truncate">
+                                            {geoState === 'ok' ? t.nearestFirst : geoState === 'off' ? t.locationOff : geoState === 'locating' ? t.locating : ''}
+                                        </span>
+                                        {geoState !== 'locating' && (
+                                            <button
+                                                onClick={locateVendor}
+                                                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                                            >
+                                                <FaCrosshairs size={11} /> {geoState === 'ok' ? t.refreshLocation : t.locateMe}
+                                            </button>
+                                        )}
+                                    </div>
+                                    <AssignedOrders assignedOrders={assignedOrders} usersMap={usersMap} entriesMap={entriesMap} vendorPos={vendorPos} />
+                                </>
                                 : <EmptyState title={t.emptyAssignedTitle} description={t.emptyAssignedDesc} />
                         ) : (
                             processedOrders.length > 0

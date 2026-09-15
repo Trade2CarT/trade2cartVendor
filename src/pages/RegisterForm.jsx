@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { ref as dbRef, set, get } from 'firebase/database';
+import { ref as dbRef, set, get, push } from 'firebase/database';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signOut } from 'firebase/auth';
 import { auth, db, storage } from '../firebase';
@@ -60,10 +60,13 @@ const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength,
     </div>
 );
 
+// Select value for "My city isn't listed" — never written to Firebase.
+const OTHER_CITY = '__other__';
+
 const RegisterForm = () => {
     const navigate = useNavigate();
     const [step, setStep] = useState(1);
-    const [formData, setFormData] = useState({ name: '', location: '', address: '', aadhaar: '', pan: '' });
+    const [formData, setFormData] = useState({ name: '', location: '', customCity: '', address: '', aadhaar: '', pan: '' });
     const [files, setFiles] = useState({ profilePhoto: null, aadhaarPhoto: null, panPhoto: null });
     const [formErrors, setFormErrors] = useState({});
     const [locations, setLocations] = useState([]);
@@ -93,7 +96,6 @@ const RegisterForm = () => {
                         ),
                     ].sort((a, b) => a.localeCompare(b));
                     setLocations(uniqueLocations);
-                    if (uniqueLocations.length > 0) setFormData(prev => ({ ...prev, location: uniqueLocations[0] }));
                 }
             } catch { toast.error("Error fetching locations."); }
             finally { setIsFetching(false); }
@@ -109,7 +111,7 @@ const RegisterForm = () => {
             finalValue = value.replace(/\D/g, '').slice(0, 12);            // digits only, max 12
         } else if (name === 'pan') {
             finalValue = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10); // A-Z/0-9, max 10
-        } else if (name === 'name') {
+        } else if (name === 'name' || name === 'customCity') {
             finalValue = value.replace(/[^a-zA-Z\s.'-]/g, '');             // letters, spaces, . ' -
         }
         setFormData(prev => ({ ...prev, [name]: finalValue }));
@@ -155,6 +157,7 @@ const RegisterForm = () => {
         } else if (step === 2) {
             if (formData.address.trim().length < 10) { errors.address = "Please enter a complete business address"; valid = false; }
             if (!formData.location) { errors.location = "Location selection is mandatory"; valid = false; }
+            if (formData.location === OTHER_CITY && formData.customCity.trim().length < 2) { errors.customCity = "Please type your city name"; valid = false; }
         }
 
         setFormErrors(errors);
@@ -221,10 +224,26 @@ const RegisterForm = () => {
             }
 
             setLoaderText("Finalizing...");
+            // A city we don't serve yet is saved as typed and flagged, so the
+            // admin can spot it and add a price list for that city.
+            const { customCity, ...profile } = formData;
+            const isNewCity = profile.location === OTHER_CITY;
+            if (isNewCity) profile.location = customCity.trim();
             await set(dbRef(db, `vendors/${user.uid}`), {
-                ...formData, uid: user.uid, phone: user.phoneNumber, status: 'pending', createdAt: new Date().toISOString(),
+                ...profile, ...(isNewCity && { locationCustom: true }),
+                uid: user.uid, phone: user.phoneNumber, status: 'pending', createdAt: new Date().toISOString(),
                 ...uploadedUrls
             });
+            if (isNewCity) {
+                // Best-effort expansion signal for the admin dashboard; never blocks registration.
+                push(dbRef(db, 'cityRequests'), {
+                    city: profile.location,
+                    phone: user.phoneNumber || '',
+                    name: profile.name.trim(),
+                    source: 'vendor',
+                    requestedAt: new Date().toISOString(),
+                }).catch(() => {});
+            }
             toast.success('Registration submitted!');
             navigate('/pending', { replace: true });
         } catch (err) {
@@ -291,9 +310,16 @@ const RegisterForm = () => {
                                 <select name="location" value={formData.location} onChange={handleInputChange} className={`w-full px-4 py-4 border-2 rounded-xl text-lg font-bold text-gray-900 ${formErrors.location ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50 focus:border-brand-600'}`}>
                                     <option value="" disabled>Select Location *</option>
                                     {locations.map((loc) => <option key={loc} value={loc}>{loc}</option>)}
+                                    <option value={OTHER_CITY}>My city isn't listed</option>
                                 </select>
                                 {formErrors.location && <p className="text-sm text-red-600 font-bold mt-1">{formErrors.location}</p>}
                             </div>
+                            {formData.location === OTHER_CITY && (
+                                <>
+                                    <TextInput name="customCity" placeholder="Type your city *" value={formData.customCity} onChange={handleInputChange} error={formErrors.customCity} icon={<FaMapMarkerAlt />} maxLength={40} />
+                                    <p className="text-sm font-bold text-gray-500 -mt-2 mb-4 ml-1">We're not in your city yet — register anyway and we'll contact you when we launch there.</p>
+                                </>
+                            )}
                         </div>
                     )}
 

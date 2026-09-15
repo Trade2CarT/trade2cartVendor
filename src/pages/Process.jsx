@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getDatabase, ref, get, onValue } from "firebase/database";
+import { getDatabase, ref, get, onValue, query, orderByChild, equalTo } from "firebase/database";
 import { auth } from "../firebase";
 import { toast } from "react-hot-toast";
 import {
@@ -15,9 +15,26 @@ import {
     FaLock,
     FaPlus,
     FaTrash,
-    FaTimes
+    FaTimes,
+    FaLocationArrow
 } from "react-icons/fa";
 import { useLanguage } from "../context/LanguageContext.jsx";
+import { getPickup, directionsUrl } from "../utils/location";
+
+// Items priced for the vendor's city; a vendor from a city that has no price
+// list yet falls back to every item (one entry per name) so they can still bill.
+const itemsForCity = (items, city) => {
+    const key = (city || '').trim().toLowerCase();
+    const cityItems = key ? items.filter(item => item.location?.trim().toLowerCase() === key) : [];
+    if (cityItems.length) return cityItems;
+    const seen = new Set();
+    return items.filter(item => {
+        const name = (item.name || '').trim().toLowerCase();
+        if (seen.has(name)) return false;
+        seen.add(name);
+        return true;
+    });
+};
 
 const STR = {
     English: {
@@ -35,6 +52,7 @@ const STR = {
         customerFallback: "Customer",
         na: "N/A",
         noAddress: "Address not provided",
+        directions: "Directions",
         order: "Order",
         processOrder: "Process Order",
         customer: "Customer",
@@ -76,6 +94,7 @@ const STR = {
         customerFallback: "வாடிக்கையாளர்",
         na: "N/A",
         noAddress: "முகவரி வழங்கப்படவில்லை",
+        directions: "வழி காட்டு",
         order: "ஆர்டர்",
         processOrder: "ஆர்டர் செயலாக்கம்",
         customer: "வாடிக்கையாளர்",
@@ -191,11 +210,11 @@ const Process = () => {
                 const snaps = await Promise.all(ids.map(id => get(ref(db, `wasteEntries/${id}`))));
                 entries = snaps.filter(s => s.exists()).map(s => ({ id: s.key, ...s.val() }));
             } else {
-                // Fallback: scan by customer id / mobile if the assignment has no entryIds.
-                const snap = await get(ref(db, 'wasteEntries'));
+                // Fallback for legacy assignments with no entryIds: query this
+                // customer's entries only (never download the whole node).
+                const snap = await get(query(ref(db, 'wasteEntries'), orderByChild('userID'), equalTo(targetUserId)));
                 const all = snap.val() || {};
-                entries = Object.keys(all).map(k => ({ id: k, ...all[k] }))
-                    .filter(e => e.userID === targetUserId || e.mobile === (assignment?.mobile));
+                entries = Object.keys(all).map(k => ({ id: k, ...all[k] }));
             }
             setCustomerEntries(entries);
         } catch {
@@ -342,7 +361,7 @@ const Process = () => {
             ...assignment,
             userName: customerProfile?.name || assignment.userName || "Customer",
             userMobile: customerProfile?.phone || assignment.userMobile || "N/A",
-            userAddress: customerProfile?.address || assignment.userAddress || "Address not provided"
+            userAddress: getPickup(assignment, customerProfile, customerEntries[0]).address || assignment.userAddress || "Address not provided"
         };
 
         navigate(`/billing/${targetAssignmentId}`, {
@@ -358,13 +377,13 @@ const Process = () => {
         );
     }
 
-    const availableItems = vendor?.location
-        ? masterItems.filter(item => item.location?.toLowerCase() === vendor.location?.toLowerCase())
-        : masterItems;
+    const availableItems = itemsForCity(masterItems, vendor?.location);
 
     const displayUserName = customerProfile?.name || assignment.userName || t.customerFallback;
     const displayUserPhone = customerProfile?.phone || customerProfile?.phoneNumber || assignment.mobile || assignment.userMobile || t.na;
-    const displayUserAddress = customerProfile?.address || customerEntries[0]?.address || assignment.userAddress || t.noAddress;
+    const pickup = getPickup(assignment, customerProfile, customerEntries[0]);
+    const displayUserAddress = pickup.address || assignment.userAddress || t.noAddress;
+    const navUrl = directionsUrl(pickup);
     const customerPhoto = customerEntries.find(e => e.image)?.image;
     const billTotal = billItems.reduce((sum, item) => sum + (item.total || 0), 0);
 
@@ -402,9 +421,21 @@ const Process = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-start gap-2 text-gray-700 font-medium text-sm">
-                        <FaMapMarkerAlt className="text-green-600 mt-0.5 flex-shrink-0" />
-                        <span>{displayUserAddress}</span>
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2 text-gray-700 font-medium text-sm min-w-0">
+                            <FaMapMarkerAlt className="text-green-600 mt-0.5 flex-shrink-0" />
+                            <span>{displayUserAddress}</span>
+                        </div>
+                        {navUrl && (
+                            <a
+                                href={navUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-shrink-0 inline-flex items-center gap-2 px-3.5 py-2 bg-green-50 text-green-700 font-bold text-sm rounded-xl transition-colors hover:bg-green-100"
+                            >
+                                <FaLocationArrow size={13} /> {t.directions}
+                            </a>
+                        )}
                     </div>
                 </div>
 
