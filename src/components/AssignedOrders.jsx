@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { FaPhoneAlt, FaMapPin, FaRupeeSign, FaAngleDoubleRight, FaLocationArrow, FaRoute } from 'react-icons/fa';
 import { useLanguage } from '../context/LanguageContext.jsx';
 import { getPickup, directionsUrl, haversineKm, formatKm } from '../utils/location';
+import { notifyAdmin } from '../utils/notify';
 
 const STR = {
     English: {
@@ -146,6 +147,12 @@ const AssignedOrders = ({ assignedOrders, usersMap, entriesMap = {}, vendorPos }
 
             if (String(userData.otp ?? '').trim() === String(enteredOtp).trim()) {
                 toast.success("OTP Verified! Opening order...");
+                notifyAdmin('pickup_started', {
+                    customerName: userData.name || '',
+                    customerPhone: userData.phone || userData.phoneNumber || otpModalOrder.mobile || '',
+                    vendorName: otpModalOrder.vendorName || '',
+                    address: getPickup(otpModalOrder, userData).address,
+                });
                 navigate(`/process/${otpModalOrder.id}`, {
                     state: { assignment: otpModalOrder, bypassOtp: true }
                 });

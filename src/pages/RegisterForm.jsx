@@ -11,6 +11,7 @@ import logo from '../assets/images/logo.PNG';
 import Loader from './Loader';
 import PolicyModal from '../components/PolicyModal';
 import { TermsAndConditions, PrivacyPolicy } from '../components/Agreement';
+import { notifyAdmin } from '../utils/notify';
 
 // Create an object URL ONCE per file and revoke the previous one.
 // (Calling URL.createObjectURL() inside JSX makes a new blob URL on every
@@ -244,6 +245,13 @@ const RegisterForm = () => {
                     requestedAt: new Date().toISOString(),
                 }).catch(() => {});
             }
+            notifyAdmin('vendor_signup', {
+                customerName: profile.name.trim(),
+                customerPhone: user.phoneNumber || '',
+                city: profile.location,
+                newCity: isNewCity,
+                address: profile.address.trim(),
+            });
             toast.success('Registration submitted!');
             navigate('/pending', { replace: true });
         } catch (err) {

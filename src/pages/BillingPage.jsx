@@ -9,6 +9,7 @@ import {
     FaCheckCircle
 } from "react-icons/fa";
 import { useLanguage } from "../context/LanguageContext.jsx";
+import { notifyAdmin } from "../utils/notify";
 
 const STR = {
     English: {
@@ -155,18 +156,13 @@ const BillingPage = () => {
             await Promise.all(promises);
 
             // 🚨 Email the admin that the order was completed (fire-and-forget).
-            fetch('https://trade2cart.trade.admin.trade2cart.in/api/notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'completed',
-                    customerName: assignment?.userName || assignment?.mobile || 'Customer',
-                    customerPhone: assignment?.userMobile || assignment?.mobile || 'N/A',
-                    vendorName: assignment?.vendorName || 'N/A',
-                    total: Number(totalAmount).toFixed(2),
-                    items: selectedItems.map((i) => i.name || i.text).join(', '),
-                }),
-            }).catch(() => console.log('Completion email triggered in background.'));
+            notifyAdmin('completed', {
+                customerName: assignment?.userName || assignment?.mobile || 'Customer',
+                customerPhone: assignment?.userMobile || assignment?.mobile || 'N/A',
+                vendorName: assignment?.vendorName || 'N/A',
+                total: Number(totalAmount).toFixed(2),
+                items: selectedItems.map((i) => i.name || i.text).join(', '),
+            });
 
             sessionStorage.removeItem(`cart_${targetAssignmentId}`);
 

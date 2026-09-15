@@ -9,6 +9,7 @@ import Loader from './Loader';
 import PolicyModal from '../components/PolicyModal';
 import { TermsAndConditions, PrivacyPolicy } from '../components/Agreement';
 import { useLanguage } from '../context/LanguageContext.jsx';
+import { notifyAdmin } from '../utils/notify';
 import {
     FaSignOutAlt,
     FaUserCircle,
@@ -160,17 +161,7 @@ const AccountPage = () => {
             });
 
             // 🚨 Email the admin that a concern was raised (fire-and-forget).
-            fetch('https://trade2cart.trade.admin.trade2cart.in/api/notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'concern',
-                    role: 'vendor',
-                    customerName: name,
-                    customerPhone: phone,
-                    message,
-                }),
-            }).catch(() => console.log('Concern email triggered in background.'));
+            notifyAdmin('concern', { role: 'vendor', customerName: name, customerPhone: phone, message });
 
             toast.success(t.toastQuerySuccess);
             setQueryText('');

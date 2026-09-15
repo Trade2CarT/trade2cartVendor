@@ -20,6 +20,7 @@ import {
 } from "react-icons/fa";
 import { useLanguage } from "../context/LanguageContext.jsx";
 import { getPickup, directionsUrl } from "../utils/location";
+import { notifyAdmin } from "../utils/notify";
 
 // Items priced for the vendor's city; a vendor from a city that has no price
 // list yet falls back to every item (one entry per name) so they can still bill.
@@ -250,6 +251,13 @@ const Process = () => {
             if (userSnapshot.exists() && userSnapshot.val().otp == otpInput) {
                 setIsOtpVerified(true);
                 toast.success(t.toastOtpSuccess);
+                const customer = userSnapshot.val();
+                notifyAdmin('pickup_started', {
+                    customerName: customer.name || '',
+                    customerPhone: customer.phone || customer.phoneNumber || assignment?.mobile || '',
+                    vendorName: assignment?.vendorName || vendor?.name || '',
+                    address: getPickup(assignment, customer, customerEntries[0]).address,
+                });
             } else {
                 toast.error(t.toastOtpWrong);
             }
