@@ -195,7 +195,7 @@ const AssignedOrders = ({ assignedOrders, usersMap, entriesMap = {}, vendorPos }
                     <div key={order.id} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
                         <div className="flex justify-between items-start gap-3 mb-3">
                             <div className="min-w-0">
-                                <h3 className="font-black text-lg text-gray-900 truncate">{userProfile?.name || 'N/A'}</h3>
+                                <h3 className="font-black text-lg text-gray-900 truncate">{userProfile?.name || order.userName || 'N/A'}</h3>
                                 <p className="text-sm text-gray-500 mt-1 flex items-start gap-2 font-medium">
                                     <FaMapPin className="text-red-500 mt-0.5 flex-shrink-0" />
                                     <span className="line-clamp-2">{pickup.address || t.noAddress}</span>

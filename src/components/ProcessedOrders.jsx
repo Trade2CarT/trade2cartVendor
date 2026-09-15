@@ -40,7 +40,9 @@ const ProcessedOrders = ({ processedOrders, usersMap }) => {
                     </div>
                     <div className="min-w-0 flex-1">
                         <h3 className="font-extrabold text-gray-900 truncate">
-                            {usersMap[order.userId]?.name || 'Unknown Customer'}
+                            {/* Vendors can't read a customer's profile once the order is done,
+                                so fall back to the name/mobile saved on the order. */}
+                            {usersMap[order.userId]?.name || order.userName || order.mobile || 'Unknown Customer'}
                         </h3>
                         <p className="text-xs text-gray-500 font-semibold flex items-center gap-1.5 mt-0.5">
                             <FaRegCalendarAlt className="flex-shrink-0" />
