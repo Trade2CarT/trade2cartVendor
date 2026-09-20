@@ -27,7 +27,7 @@ const useObjectUrl = (file) => {
     return url;
 };
 
-const FileInput = ({ label, icon, onChange, file, error, accept, capture }) => {
+const FileInput = ({ label, icon, onChange, file, error, accept = "image/*", capture }) => {
     const preview = useObjectUrl(file);
     return (
         <div className="flex flex-col mb-4">
@@ -35,7 +35,7 @@ const FileInput = ({ label, icon, onChange, file, error, accept, capture }) => {
             <div className="flex items-center gap-4">
                 <label className={`flex-1 flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-xl cursor-pointer bg-gray-50 active:bg-gray-200 transition-colors ${error ? 'border-red-400 bg-red-50' : 'border-gray-400'}`}>
                     {icon}
-                    <span className="mt-2 text-sm text-gray-700 font-bold text-center">Tap to capture {label}</span>
+                    <span className="mt-2 text-sm text-gray-700 font-bold text-center">Tap to upload or take a photo</span>
                     <input type="file" className="hidden" accept={accept} capture={capture} onChange={onChange} />
                 </label>
                 {preview && (
@@ -60,6 +60,10 @@ const TextInput = ({ name, placeholder, value, onChange, error, icon, maxLength,
         {error && <p className="text-sm text-red-600 font-bold mt-1 ml-1">{error}</p>}
     </div>
 );
+
+// Aadhaar/PAN photos may now come from the gallery, where originals are far
+// bigger than a camera capture. Anything past this stalls compressImage.
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 // Select value for "My city isn't listed" — never written to Firebase.
 const OTHER_CITY = '__other__';
@@ -119,9 +123,31 @@ const RegisterForm = () => {
         setFormErrors(prev => ({ ...prev, [name]: '' })); // Clear error on typing
     };
 
+    // The gallery and Files app can hand back a PDF, a video or a 40 MB HEIC.
+    // compressImage only understands a decodable raster image, so screen the
+    // file here rather than letting it fall through and upload as a broken .jpg.
     const handleFileChange = (e, key) => {
         const file = e.target.files[0];
         if (!file) return;
+
+        const reject = (message) => {
+            e.target.value = ''; // so re-picking the same file still fires onChange
+            setFormErrors(prev => ({ ...prev, [key]: message }));
+            toast.error(message);
+        };
+
+        if (!file.type.startsWith('image/')) {
+            return reject("Please choose a photo (JPG or PNG), not a document.");
+        }
+        // Only Safari can decode HEIC, so elsewhere it would skip compression
+        // and upload an image the admin panel can't display.
+        if (/^image\/hei[cf]$/.test(file.type)) {
+            return reject("This photo format isn't supported. Please use a JPG or PNG.");
+        }
+        if (file.size > MAX_FILE_BYTES) {
+            return reject("This photo is too large. Please choose one under 10 MB.");
+        }
+
         setFiles(prev => ({ ...prev, [key]: file }));
         setFormErrors(prev => ({ ...prev, [key]: '' })); // Clear error on file select
     };
@@ -219,8 +245,13 @@ const RegisterForm = () => {
                 setLoaderText(`Uploading documents (${i + 1}/${filesToUpload.length})...`);
                 const item = filesToUpload[i];
                 const compressed = await compressImage(item.file, item.maxDim, item.quality);
-                const fileRef = storageRef(storage, `vendors/${user.uid}/${item.key}.jpg`);
-                await uploadBytes(fileRef, compressed, { contentType: 'image/jpeg' });
+                // compressImage returns the original file when the JPEG would be
+                // bigger. Store that under its real type — calling a PNG a JPEG
+                // left the admin panel showing a broken image.
+                const contentType = compressed === item.file ? (item.file.type || 'image/jpeg') : 'image/jpeg';
+                const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+                const fileRef = storageRef(storage, `vendors/${user.uid}/${item.key}.${ext}`);
+                await uploadBytes(fileRef, compressed, { contentType });
                 uploadedUrls[item.key] = await getDownloadURL(fileRef);
             }
 
@@ -334,10 +365,10 @@ const RegisterForm = () => {
                     {step === 3 && (
                         <div>
                             <TextInput name="aadhaar" type="tel" inputMode="numeric" placeholder="Aadhaar Number *" value={formData.aadhaar} onChange={handleInputChange} error={formErrors.aadhaar} icon={<FaIdCard />} maxLength={12} />
-                            <FileInput label="Aadhaar Photo *" error={formErrors.aadhaarPhoto} capture="environment" icon={<FaCamera className="text-brand-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} file={files.aadhaarPhoto} />
+                            <FileInput label="Aadhaar Photo *" error={formErrors.aadhaarPhoto} icon={<FaCamera className="text-brand-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'aadhaarPhoto')} file={files.aadhaarPhoto} />
 
                             <TextInput name="pan" inputMode="text" placeholder="PAN Number *" value={formData.pan} onChange={handleInputChange} error={formErrors.pan} icon={<FaIdCard />} maxLength={10} />
-                            <FileInput label="PAN Photo *" error={formErrors.panPhoto} capture="environment" icon={<FaCamera className="text-green-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'panPhoto')} file={files.panPhoto} />
+                            <FileInput label="PAN Photo *" error={formErrors.panPhoto} icon={<FaCamera className="text-green-500 text-3xl" />} onChange={(e) => handleFileChange(e, 'panPhoto')} file={files.panPhoto} />
 
                             <div className="pt-4 mt-6 border-t-2 border-gray-100">
                                 <label className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl cursor-pointer">
