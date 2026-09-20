@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { getDatabase, ref, update } from "firebase/database";
+import { getDatabase, ref, update, get } from "firebase/database";
 import { toast } from "react-hot-toast";
 import {
     FaArrowLeft,
@@ -10,6 +10,7 @@ import {
 } from "react-icons/fa";
 import { useLanguage } from "../context/LanguageContext.jsx";
 import { notifyAdmin } from "../utils/notify";
+import { DEFAULT_FEE, feeBaseFor } from "../utils/platformFee";
 
 const STR = {
     English: {
@@ -91,6 +92,12 @@ const BillingPage = () => {
             const timestamp = new Date().toISOString();
             const promises = [];
 
+            // Platform fee in force at completion, stamped onto the bill below so
+            // a later rate change never re-prices this order. See
+            // utils/platformFee.js. Falls back to the flat default if unreadable.
+            const feeSnap = await get(ref(db, 'settings/platformFee')).catch(() => null);
+            const feeSetting = feeSnap?.val() || DEFAULT_FEE;
+
             // Waste entries: keyed per assignment + item so concurrent orders for the
             // same scrap category no longer overwrite each other's records.
             selectedItems.forEach((item) => {
@@ -139,6 +146,7 @@ const BillingPage = () => {
                 mobile: assignment.userMobile || assignment.mobile || "",
                 totalBill: totalAmount,
                 createdAt: timestamp,
+                platformFeeBase: feeBaseFor(feeSetting, totalAmount),
                 billItems: selectedItems.map((item) => {
                     const itemName = item.name || item.text || "unknown";
                     const itemRate = resolveRate(item);
